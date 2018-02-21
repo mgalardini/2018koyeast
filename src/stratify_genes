@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+def get_options():
+    import argparse
+
+    description = 'Stratify the genes by number of phenotypes'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('scores',
+                        help='KO scores file name')
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    options = get_options()
+
+    scores = options.scores
+
+    import numpy as np
+    import pandas as pd
+
+    m = pd.read_table(scores)
+    m['sick'] = np.zeros(m.shape[0])
+    m.loc[m[(m['score'] < 0) &
+            (m['qvalue'] < 0.05)].index,
+          'sick'] = 1
+    v = m.groupby(['strain', 'gene', 'position']).sum()['sick']
+    # skip the "control" genes
+    genes = sorted({y[1] for y in v.index} - {'WT', 'YOR202W'})
+    # for each strain pick the maximum number of genes
+    # then take the average across all strains
+    v = pd.Series([v.loc[slice(None), x].groupby('strain').max().mean()
+                   for x in genes],
+                  index=genes)
+
+    g0 = {x for x in v[v == 0].index}
+    g1 = {x for x in v[(v >= 1) &
+                       (v <= 2)].index}
+    g2 = {x for x in v[(v >= 3) &
+                       (v <= 5)].index}
+    g3 = {x for x in v[v > 5].index}
+
+    print('\t'.join(['class', 'gene']))
+    print('\t'.join(['g0', ','.join(g0)]))
+    print('\t'.join(['g1', ','.join(g1)]))
+    print('\t'.join(['g2', ','.join(g2)]))
+    print('\t'.join(['g3', ','.join(g3)]))

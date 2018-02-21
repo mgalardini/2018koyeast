@@ -1,0 +1,93 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+def get_options():
+    import argparse
+
+    description = ''
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('scores',
+                        help='KO scores file')
+    
+    parser.add_argument('--genes',
+                        default=None,
+                        help='Genes stratification file')
+    parser.add_argument('--stratum',
+                        default='g0',
+                        help='Which stratum to pick [Default: g0]')
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import sys
+    import random
+    import itertools
+    import numpy as np
+    import pandas as pd
+
+    if options.genes is not None:
+        genes = pd.read_table(options.genes,
+                              index_col=0).loc[options.stratum]['gene'].split(',')
+        m = pd.read_table(options.scores
+                ).set_index('gene').loc[genes].reset_index()
+    else:
+        m = pd.read_table(options.scores)
+
+    m = m.pivot_table(index=['gene', 'strain', 'position'],
+                      columns=['condition'],
+                      values='score')
+
+    genes = {x[0] for x in m.index} - {'WT', 'YOR202W'}
+
+    print('\t'.join(['gene', 'strain1', 'strain2',
+                     'pos1', 'pos2', 'corr', 'genes']))
+    i = 0
+    for gene in sorted(genes):
+        sys.stderr.write('%s (%d)\n' % (gene, i))
+        v = m.loc[gene]
+        strains = {x[0] for x in v.index}
+        for s1, s2 in itertools.combinations(strains,
+                                             2):
+            ps1 = sorted({x[1] for x in v.index
+                          if x[0] == s1})
+            ps2 = sorted({x[1] for x in v.index
+                          if x[0] == s2})
+            for p1, p2 in itertools.product(ps1,
+                                            ps2):
+                c = v.loc[([s1, s2], [p1, p2]), ].T.corr().values[0, 1]
+                print('\t'.join([str(x) for x in (gene, s1, s2, p1, p2, c, 'same')]))
+                i += 1
+
+    j = 0
+    genes = list(genes)
+    while True:
+        gene1 = random.choice(genes)
+        gene2 = random.choice(genes)
+        if gene1 == gene2:
+            continue
+        sys.stderr.write('%s + %s (%d/%d)\n' % (gene1, gene2, j, i))
+        v1 = m.loc[gene1]
+        v2 = m.loc[gene2]
+        strains1 = {x[0] for x in v1.index}
+        strains2 = {x[0] for x in v2.index}
+        for s1, s2 in itertools.combinations(strains1.union(strains2),
+                                             2):
+            if s1 not in strains1 or s2 not in strains2:
+                continue
+            ps1 = sorted({x[1] for x in v1.index
+                          if x[0] == s1})
+            ps2 = sorted({x[1] for x in v2.index
+                          if x[0] == s2})
+            for p1, p2 in itertools.product(ps1,
+                                            ps2):
+                c = m.loc[([gene1, gene2],
+                           [s1, s2],
+                           [p1, p2])].T.corr().values[0, 1]
+                print('\t'.join([str(x) for x in (gene1 + '-' + gene2,
+                                                  s1, s2, p1, p2, c, 'shuffled')]))
+                j += 1
+        if j >= i:
+            break

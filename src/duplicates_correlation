@@ -1,0 +1,118 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+
+def get_options():
+    import argparse
+
+    description = ''
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('scores',
+                        help='KO scores file')
+
+    parser.add_argument('--genes',
+                        default=None,
+                        help='Genes stratification file')
+    parser.add_argument('--stratum',
+                        default='g0',
+                        help='Which stratum to pick [Default: g0]')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import sys
+    import random
+    import itertools
+    import numpy as np
+    import pandas as pd
+    from scipy import stats
+
+    if options.genes is not None:
+        genes = pd.read_table(options.genes,
+                              index_col=0).loc[options.stratum]['gene'].split(',')
+        m = pd.read_table(options.scores
+                ).set_index('gene').loc[genes].reset_index()
+    else:
+        m = pd.read_table(options.scores)
+
+    m['signed-qvalue'] = [np.sign(x) * -np.log10(y)
+                          for x,y in m[['score', 'qvalue']].values]
+
+    d = {}
+    for strain in set(m['strain']):
+        sys.stderr.write(strain + '\n')
+        c = m[(m['strain'] == strain) &
+              (m['gene'] != 'WT')].groupby(['condition', 'gene']).count()
+        dups = {x[1] for x in c[c['strain'] == 2].index}
+        t = m.set_index(['strain', 'gene', 'position'])
+        t.sort_index(inplace=True)
+        t = t.loc[strain]
+        res = []
+        for g in dups:
+            z = t.loc[g].reset_index()
+            x = z.pivot(columns='position',
+                        index='condition',
+                        values='signed-qvalue').dropna().T
+            if x.shape[1] < 20:
+                continue
+            y = z.pivot(columns='position',
+                        index='condition',
+                        values='score').dropna().T
+            xcorr, xpval = stats.pearsonr(x.values[0],
+                                          x.values[1])
+            ycorr, ypval = stats.pearsonr(y.values[0],
+                                          y.values[1])
+            res.append((strain, g,
+                        x.index[0],
+                        x.index[1],
+                        x.shape[1],
+                        xcorr, xpval,
+                        ycorr, ypval,
+                        'same'))
+        i = len(res)
+        dups = list(dups)
+        random.shuffle(dups)
+        for g1, g2 in itertools.combinations(dups, 2):
+            z1 = t.loc[g1].index[0]
+            z2 = t.loc[g2].index[0]
+            z = t.loc[([g1, g2], [z1, z2]), ].reset_index()
+            x = z.pivot(columns='position',
+                        index='condition',
+                        values='signed-qvalue').dropna().T
+            if x.shape[1] < 20:
+                continue
+            y = z.pivot(columns='position',
+                        index='condition',
+                        values='score').dropna().T
+            xcorr, xpval = stats.pearsonr(x.values[0],
+                                          x.values[1])
+            ycorr, ypval = stats.pearsonr(y.values[0],
+                                          y.values[1])
+            res.append((strain,
+                        g1 + '-' + g2,
+                        x.index[0],
+                        x.index[1],
+                        x.shape[1],
+                        xcorr, xpval,
+                        ycorr, ypval,
+                        'shuffled'))
+            if len(res) >= i*2:
+                break
+        r = pd.DataFrame(res,
+                         columns=['strain',
+                                  'gene',
+                                  'position1',
+                                  'position2',
+                                  'conditions',
+                                  'corr-qvalue', 'pval-qvalue',
+                                  'corr-score', 'pval-score',
+                                  'genes'])
+        d[strain] = r
+    r = pd.concat(d.values())
+    r.to_csv(sys.stdout,
+             sep='\t',
+             index=False)

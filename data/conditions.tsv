@@ -1,0 +1,111 @@
+condition_tag	corrected_condition_tag	toDiscard	screening notes	condition	carrier	concentration	notes
+20				20ºC	sc		Cold stress
+24d				2,4-Dichlorophenoxyacetic acid	DMSO	3mM	2,4-Dichlorophenoxyacetic acid
+37				37ºC	sc		Heat stress
+39				39ºC	sc		Heat stress
+42				42ºC	sc		Heat stress
+5fu				5-FU	DMSO	500uM	5-Fluoruracil
+6au				6-AU	DMSO	8 mM	6 Azauracil. can be used as a crude assay to test for mutations that affect transcription elongation
+6au39				6-AU + 39ºC	DMSO	8 mM	6 Azauracil + 39ºC. can be used as a crude assay to test for mutations that affect transcription elongation
+aa		batch2	don't use this condition from batch2, use photos from batch3	Acetic acid	x	0.625	carbon source stress
+ampho				Amphotericin B	DMSO	100 uM	antifungal , binds to ergosterol - a hole poker
+amphoana				Amphotericin B + anaerobic	DMSO	100 uM	antifungal , binds to ergosterol - a hole poker
+ana				Anaerobic growth			Anaerobic chamber at room temperature in Typas Lab
+ana37				Anaerobic + 37ºC			Anaerobic chamber in the 37C incubator in Typas Lab
+ars				Arsenic 	water	1 mM	Arsenic V oxide (As2O5). general stress response and inhibition of TOR1
+ator				Atorvastatin 	DMSO	100 uM	
+atorana				Atorvastatin + anaerobic 			Anaerobic chamber at room temperature in Typas Lab
+bc		all					
+bcsa				Bathocuproinedisulfonic acid	water	5 mM	copper chelator
+ben				Benomyl	DMSO	300 uM	Benomyl hepes
+bs				B. subtilis		50%	Bacillus subtilis
+ca				C. albicans		50%	Candida albicans ySN250
+caff				Caffeine 20mM	water	20 mM	
+caff15			new condition (batch3). Independent of caff	Caffeine 15mM			
+cant				Cantharidin	DMSO	150 uM	phosphatase inhibitor
+caspo				Caspofungin	Water	6.5 nM	antifungal, echinocandin, disrupts fungal cell wall
+cd				Cadmium chloride	water	250 uM	heavy metal
+ch		all					
+chmt				Chlormethine 	DMSO	12 uM	Chlormethine (mechlorethamine) . nitrogen mustard alkylating agent (mustard gas) target HMN1, phospholipid biosynthesis and osmoprortection
+chx				Cyclohexamide	Water	625 nM	protein synthesis inhibitor, blocks translatiol elongation
+cis				Cisplatin	Water	375 uM	inhibits D replication, alkylating like agent
+clio		all		Clioquinol			
+cloz				Clozapine	DMSO	350 uM	antipsychotic
+cu				CuSO4	Water	3 mM	fungacide, incresed copper ion scausing toxicity
+cua	cu		cua is the same as cu				
+cur				Curcumin	DMSO	2 mM	Curcumin - hepes
+cuso4	cu		cuso4 is the same as cu				
+cw				Calcofluor white	water	1.25 mM	alters assembly of chitin fibrils
+dmso1				DMSO 1% 			DMSO 1% control. Control for the drugs disolved in DMSO
+dmso6				DMSO 6%			DMSO stress
+doxo				Doxorubicin	water	75 uM	intercalates with D, inhibits Topo 2
+ece				E. coli H104 07 ETEC		50%	
+ecu				E. coli UTI 89 UPEC		50%	
+edta				EDTA	water	250 uM	zinc and copper chelator
+egta				EGTA	water	35 mM	Ca chelator
+etoh				EtOH	x	7.50%	carbon source stress
+etoh20				EtOH + 20ºC			
+etoh39				EtOH + 39ºC			
+feno				Fenofibrate	DMSO	2 mM	inhibits lipid biosynthesis
+fenoana				Fenofibrate + anaerobic 			Anaerobic chamber at room temperature in Typas Lab
+flu				Flucozole	DMSO	125 uM	antifungal, inhibits fungal cyt p 450 c-14 demethylation
+gj		all		Grape Juice		50%	grape juice mimiking natural high glucose environment
+gjw				Grape juice + aa			grape juice supplemented with amino acids
+glyc				Glycerol 2% 			carbon source stress
+halo				Haloperidol	DMSO	1 mM	antipsychotic
+hg		batch1	don't use this condition from batch1, use photos from batch3	HgCl2	Water	200 uM	Mecury II cholide. heavy metal
+hglu				Glucose 20%			high glucose
+hyd				Hydroxyurea	Water	200 mM	DNA damage
+keto				Ketocozole	DMSO	30 uM	antifungal, imidazole, inhibits egosterol biosynthesis
+kp				K. pneumoniae		50%	Klebsiella pneumoniae. 50% LB media with the indicated organism + 50% YPD media
+lb				LB media		50%	Control media for coditions containing 50% of LB media
+lglu				Glucose 0.2%			Glucose starvation
+liac	licl		in rep2 there was a typo				Lithium acetate
+licl				LiCl	Water	2.5 mM	Lithium clorade
+mal				Maltose 2% 			Maltose 2% (as a carbon source). carbon source stress / glucose starvation
+mg132				MG132	DMSO	100 uM	proteosome inhibitor
+min				aa starvation			SC w/o aminoacids
+mms				MMS	Water	0.01%	Methyl methanesulfonate. D alkylatin agent - methylates D
+mtrx				Methotrexate	DMSO	350 uM	antimetabolite, antifolate
+myr				Myriocin	DMSO	3 uM	inhibits sphingosine biosinthesis also immunosupressent
+myxm				M. xanthus media		50%	Myxococcus media 
+myxo				M. xanthus		50%	50% Myxococcus media with the indicated organism + 50% YPD media
+myxop				M. xanthus (predator)		50%	50% Myxococcus predator media with the indicated organism + 50% YPD media
+myxopm	myxpm		myxopm is the same as myxpm				
+myxpm				M. xanthus (predator) media		50%	50% Myxococcus predator media  + 50% YPD media
+nacl4				NaCl 0.4M			Osmotic stress
+nacl439				NaCl 0.4M + 39ºC			Osmotic stress + heat stress
+nacl6				NaCl 0.6M			Osmotic stress
+nacl639				NaCl 0.6M + 39ºC			Osmotic stress + heat stress
+nati				Nitrogen stress			Patil nitrogen. Nitrogen source (media from Patil's lab)
+ni				NiSO4	Water	2 mM	Nickel sulfate. heavy metal
+nitr				Nitrogen starvation	YNB		Nitrogen starvation
+noco				Nocodazole	DMSO	35 uM	microtubule inhibitor
+nys				Nystatin	DMSO	30 uM	antifungal, lowers ergosterol (lanosterol to ergosterol)
+para				Paraquat	Water	1.2 mM	oxidising agent, generates ROS
+ph3				pH3	adj with 1M malaic acid		pH stress
+ph4				pH4	adj with 1M malaic acid		pH stress
+ph75				pH7.5 			pH stress
+ph85				pH8.5 			pH stress
+pp1				PP1	DMSO	100	src inhibitor/  Hillenmeyer says phosphatase inhibitor
+pp2				PP2	DMSO	100	SRC kinase inhibitor
+psu				P. aeruginosa		50%	P. aeruginosa PO1. 50% LB media with the indicated organism + 50% YPD media
+rapa				Rapamycin	DMSO	60 nM	protein synthesis inhibitor TOR pathway
+rapa39				Rapamycin + 39ºC			protein synthesis inhibitor TOR pathway + heat stress
+sa				S. aerous 		50%	Staphylococcus aerous . 50% LB media with the indicated organism + 50% YPD media
+sch				SC + hepes			control media for the drugs disolved in hepes
+sds				SDS 	Water	0.0175	SDS percentage
+sf				S. flexneri		50%	50% LB media with the indicated organism + 50% YPD mediaShigella flexneri. 
+si		all					
+simva				Simvastatin	EtoH -see note	500 uM	sterol biosynthesis inhibitor, mily HMG-CoA reductase
+simvaana				Simvastatin + anaerobic 			Anaerobic chamber at room temperature in Typas Lab
+sorb				Sorbitol 1M	Water	1 M	osmotic stress
+sorb1m	sorb			Sorbitol 1M	Water	1 M	osmotic stress
+sorb2		all		Sorbitol 2%			sorbitol as carbon source /non-fermentable carbon source/  glucose starvation
+ss				S. sonnei		50%	50% LB media with the indicated organism + 50% YPD media
+staur				Staurosporine	DMSO	200 uM	general kinase inhibitor
+tuni				Tunicamycin	DMSO	3.5 uM	blocks n-linked glycosylation, G1 arrest/  induces unfolding protein response
+uv				UV light			
+uv39				UV light + 39ºC			
+vc				V. cholerae		50%	Vibrio cholerae. 50% LB media with the indicated organism + 50% YPD media
+xlglu				Glucose 0.02%			very low glucose /glucose starvation

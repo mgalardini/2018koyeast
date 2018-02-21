@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+def get_options():
+    import argparse
+
+    description = 'Compute ortohlogs correlations per-condition'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('scores',
+                        help='KO scores file name')
+
+    parser.add_argument('--genes',
+                        default=None,
+                        help='Genes stratification file')
+    parser.add_argument('--stratum',
+                        default='g0',
+                        help='Which stratum to pick [Default: g0]')
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import sys
+    import itertools
+    import pandas as pd
+
+    if options.genes is not None:
+        genes = pd.read_table(options.genes,
+                              index_col=0).loc[options.stratum]['gene'].split(',')
+        n = pd.read_table(options.scores
+                ).set_index('gene').loc[genes].reset_index()
+        n.set_index(['condition', 'gene', 'strain', 'position'], inplace=True)
+        n = n['score']
+        m = pd.read_table(options.scores
+                ).set_index('gene').loc[genes].reset_index()
+        m.set_index(['condition', 'strain', 'gene', 'position'], inplace=True)
+        m = m['score']
+        m.sort_index(inplace=True)
+        genes = {x[1] for x in n.index}
+    else:
+        n = pd.read_table(options.scores, index_col=[1, 2, 0, 4])['score']
+        genes = {x[1] for x in n.index}
+
+        m = pd.read_table(scores, index_col=[1, 0, 2, 4])['score']
+        m.sort_index(inplace=True)
+
+    print('\t'.join(['condition',
+                     'strain1', 'strain2',
+                     'genes',
+                     'correlation',
+                     'set']))
+    
+    for c in sorted(set({x[0] for x in m.index})):
+        sys.stderr.write('%s\n' % c)
+        p = n.loc[c]
+        o = {}
+        for g in genes:
+            o[g] = {x[0]: x[1] for x in p.loc[g].index}
+        o = pd.DataFrame(o).T.dropna()
+        i = o.shape[0]
+        if i < 10:
+            continue
+        v = m.loc[c]
+        w = pd.DataFrame({x: v.loc[x, list(o.index), list(o[x])].values
+                          for x in o.columns})
+        corr = w.corr()
+        for s1, s2 in itertools.combinations(corr.columns, 2):
+            print('\t'.join([str(x)
+                             for x in (c,
+                                       s1, s2,
+                                       i,
+                                       corr.loc[s1, s2],
+                                       'same')]))
+        for x in o.columns:
+            w[x] = w[x].sample(frac=1).values
+        corr = w.corr()
+        for s1, s2 in itertools.combinations(corr.columns, 2):
+            print('\t'.join([str(x)
+                             for x in (c,
+                                       s1, s2,
+                                       i,
+                                       corr.loc[s1, s2],
+                                       'shuffled')]))
