@@ -22,6 +22,8 @@ dups = pj(out, 'duplicates_correlation.tsv')
 orth = pj(out, 'orthologs_correlation.tsv')
 cond = pj(out, 'orthologs_conditions_correlation.tsv')
 genes = pj(out, 'stratified_genes.tsv')
+# deviating s-scores
+deviations = pj(out, 'deviating.tsv')
 # ko data (Hillenmeyer 2008)
 kolog = pj(ko, 'lscores.tsv')
 koz = pj(ko, 'zscores.tsv')
@@ -44,7 +46,7 @@ rule all:
     orth, cond, genes,
     sdups, sorth, scond,
     kolog, koz, kopval,
-    features
+    features, deviations
 
 rule:
   input: raw, conditions
@@ -117,3 +119,8 @@ rule:
 rule:
   output: features
   shell: 'wget -O {output} "https://downloads.yeastgenome.org/curation/chromosomal_feature/SGD_features.tab"'
+
+rule:
+  input: scores, scoresrep
+  output: deviations
+  shell: 'src/get_deviating_scores {input} > {output}'
