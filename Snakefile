@@ -31,7 +31,11 @@ kopval = pj(ko, 'pvalues.tsv')
 # SGD data
 features = pj(out, 'SGD_features.tab')
 gaf = pj(out, 'SGD_slim.tsv')
-
+obo = pj(out, 'SGD_slim.obo')
+# go terms enrichemnt
+study = pj(out, 'deviating_study.txt')
+population = pj(out, 'deviating_population.txt')
+goe = pj(out, 'deviating_enrichemnt.tsv')
 # stratified results
 strata = ['g%d' % x for x in range(4)]
 sdups = [pj('out', 'duplicates_correlation_%s.tsv' % x)
@@ -48,7 +52,7 @@ rule all:
     sdups, sorth, scond,
     kolog, koz, kopval,
     features, deviations,
-    gaf
+    gaf, obo, goe
 
 rule:
   input: raw, conditions
@@ -127,6 +131,20 @@ rule:
   shell: 'curl --silent https://downloads.yeastgenome.org/curation/literature/go_slim_mapping.tab | src/slim2gaf > {output}'
 
 rule:
+  output: obo
+  shell: 'wget -O {output} "http://www.geneontology.org/ontology/subsets/goslim_yeast.obo"'
+
+rule:
   input: scores, scoresrep
   output: deviations
   shell: 'src/get_deviating_scores {input} > {output}'
+
+rule:
+  input: scores, deviations 
+  output: study, population
+  shell: 'src/get_deviations_gene_sets {input} {output}'
+
+rule:
+  input: obo, study, population, gaf
+  output: goe
+  shell: 'find_enrichment.py --obo {input} --method fdr_bh | grep "^GO" > {output}'

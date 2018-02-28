@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+def get_options():
+    import argparse
+
+    description = 'Extract gene sets from deviating genes'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('scores',
+                        help='KO scores file')
+    parser.add_argument('deviating',
+                        help='Deviating genes file')
+    parser.add_argument('study',
+                        help='Study output file')
+    parser.add_argument('population',
+                        help='Population output file')
+    
+    parser.add_argument('--threshold',
+                        default=10,
+                        type=int,
+                        help='Gene swap count threshold [Default: 10]')
+    parser.add_argument('--s288c',
+                        action='store_true',
+                        default=False,
+                        help='Focus on S288C')
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    options = get_options()
+
+    scores = options.scores
+    dev = options.deviating
+
+    import numpy as np
+    import pandas as pd
+
+    m = pd.read_table(scores, index_col=[0, 2, 1])
+    m['phenotype'] = m['qvalue'] < 0.05
+    genes = None
+    for s in {x[0] for x in m.index}:
+        gs = {x[0] for x in m.loc[s].index}
+        if genes is None:
+            genes = gs
+        else:
+            genes = genes.intersection(gs)
+    genes = sorted(genes)
+
+    d = pd.read_table(dev, index_col=[4, 5, 1, 0])
+
+    strains = {y
+               for x in d.index
+               for y in x[:2]}
+
+    if not options.s288c:
+        v = d.reset_index().set_index('gene').loc[genes]
+    else:
+        v = d.loc[(slice(None), 'S288C'),].reset_index().set_index('gene').loc[genes]
+    v = v[v['qval'] < 0.01].groupby('gene').count()['qval'].sort_values(ascending=False)
+    idx = v.index
+    
+    f = open(options.population, 'w')
+    for gene in genes:
+        f.write('%s\n' % gene)
+    f.close()
+    f = open(options.study, 'w')
+    for gene in v[v >= options.threshold].dropna().index:
+        f.write('%s\n' % gene)
+    f.close()
