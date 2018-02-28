@@ -30,6 +30,7 @@ koz = pj(ko, 'zscores.tsv')
 kopval = pj(ko, 'pvalues.tsv')
 # SGD data
 features = pj(out, 'SGD_features.tab')
+gaf = pj(out, 'SGD_slim.tsv')
 
 # stratified results
 strata = ['g%d' % x for x in range(4)]
@@ -46,7 +47,8 @@ rule all:
     orth, cond, genes,
     sdups, sorth, scond,
     kolog, koz, kopval,
-    features, deviations
+    features, deviations,
+    gaf
 
 rule:
   input: raw, conditions
@@ -119,6 +121,10 @@ rule:
 rule:
   output: features
   shell: 'wget -O {output} "https://downloads.yeastgenome.org/curation/chromosomal_feature/SGD_features.tab"'
+
+rule:
+  output: gaf
+  shell: 'curl --silent https://downloads.yeastgenome.org/curation/literature/go_slim_mapping.tab | src/slim2gaf > {output}'
 
 rule:
   input: scores, scoresrep
