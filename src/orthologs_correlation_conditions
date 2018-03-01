@@ -43,7 +43,7 @@ if __name__ == "__main__":
         n = pd.read_table(options.scores, index_col=[1, 2, 0, 4])['score']
         genes = {x[1] for x in n.index}
 
-        m = pd.read_table(scores, index_col=[1, 0, 2, 4])['score']
+        m = pd.read_table(options.scores, index_col=[1, 0, 2, 4])['score']
         m.sort_index(inplace=True)
 
     print('\t'.join(['condition',
