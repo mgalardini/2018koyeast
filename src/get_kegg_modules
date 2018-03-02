@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Copyright (C) <2015> EMBL-European Bioinformatics Institute
+
+# This program is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of
+# the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# Neither the institution name nor the name 2015_stm_ec can
+# be used to endorse or promote products derived from this
+# software without prior written permission. For written
+# permission, please contact <marco@ebi.ac.uk>.
+
+# Products derived from this software may not be called
+# 2015_stm_ec nor may 2015_stm_ec appear in their names
+# without prior written permission of the developers.
+# You should have received a copy of the GNU General Public
+# License along with this program. If not, see
+# <http://www.gnu.org/licenses/>.
+
+if [ "$#" -lt 1 ]; then
+    echo 'get_kegg_modules KEGG_ORG'
+    exit 65
+fi
+
+KEGG_ORG=$1
+
+# Get modules
+wget --quiet -O /tmp/modules.txt "http://rest.kegg.jp/list/module/$KEGG_ORG"
+# For each module retrieve the genes
+for module in $(awk '{print $1}' /tmp/modules.txt)
+do
+	wget --quiet -O /tmp/$(echo $module | awk -F ':' '{print $2}').txt "http://rest.kegg.jp/link/$KEGG_ORG/$module";
+	for gene in $(awk -F '\t' '{print $2}' /tmp/$(echo $module | awk -F ':' '{print $2}').txt | awk -F ':' '{print $2}')
+	do
+		echo -e "$gene\t$(echo $module | awk -F ':' '{print $2}')";
+	done;
+	rm /tmp/$(echo $module | awk -F ':' '{print $2}').txt;
+done
+# Clean
+rm /tmp/modules.txt

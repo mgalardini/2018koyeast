@@ -1,0 +1,37 @@
+#!/usr/bin/env python
+
+def get_options():
+    import argparse
+
+    description = 'Convert biogrid table to plain format'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('--conversion',
+                        default=None,
+                        help='Gene conversion file')
+    parser.add_argument('--organism',
+                        default=559292,
+                        type=int,
+                        help='Organism [Default: 559292]')
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    options = get_options()
+    import sys
+    import pandas as pd
+
+    conv = {}
+    if options.conversion is not None:
+        for l in open(options.conversion):
+            g1, g2 = l.rstrip().split()
+            conv[g1] = g2
+
+    cpx = {}
+    m = pd.read_table(sys.stdin, sep='\t')
+    m = m[(m['Organism Interactor A'] == options.organism) &
+          (m['Organism Interactor B'] == options.organism)]
+    for g1, g2 in {tuple(sorted((x, y)))
+                   for x,y in m[['Systematic Name Interactor A',
+                                 'Systematic Name Interactor B']].values}:
+        print('%s\t%s' % (g1, g2))

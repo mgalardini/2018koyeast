@@ -32,6 +32,12 @@ kopval = pj(ko, 'pvalues.tsv')
 features = pj(out, 'SGD_features.tab')
 gaf = pj(out, 'SGD_slim.tsv')
 obo = pj(out, 'SGD_slim.obo')
+# functional interactions
+cpx = pj(out, 'complexes.cyc2008.txt')
+kegg = pj(out, 'modules.kegg.txt')
+string = pj(out, 'string.combined.800.txt')
+biogrid = pj(out, 'biogrid.all.txt')
+biogrid_physical = pj(out, 'biogrid.physical.txt')
 # go terms enrichemnt
 study = pj(out, 'deviating_study.txt')
 population = pj(out, 'deviating_population.txt')
@@ -52,7 +58,9 @@ rule all:
     sdups, sorth, scond,
     kolog, koz, kopval,
     features, deviations,
-    gaf, obo, goe
+    gaf, obo, goe,
+    cpx, kegg, string,
+    biogrid, biogrid_physical
 
 rule:
   input: raw, conditions
@@ -133,6 +141,26 @@ rule:
 rule:
   output: obo
   shell: 'wget -O {output} "http://www.geneontology.org/ontology/subsets/goslim_yeast.obo"'
+
+rule:
+  output: cpx
+  shell: 'curl --silent "http://wodaklab.org/cyc2008/resources/CYC2008_complex.tab" | src/cyc2txt > {output}'
+
+rule:
+  output: kegg
+  shell: 'src/get_kegg_modules sce | src/kegg2txt > {output}'
+
+rule:
+  output: string
+  shell: 'wget --quiet --output-document - https://string-db.org/download/protein.links.detailed.v10.5/4932.protein.links.detailed.v10.5.txt.gz | zcat | src/string2txt --score 800 > {output}'
+
+rule:
+  output: biogrid
+  shell: 'wget -O tmp.zip https://downloads.thebiogrid.org/Download/BioGRID/Latest-Release/BIOGRID-ORGANISM-LATEST.tab2.zip && unzip -j tmp.zip BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.158.tab2.txt -d . && cat BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.158.tab2.txt | src/biogrid2txt > {output} && rm tmp.zip && rm BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.158.tab2.txt'
+
+rule:
+  output: biogrid_physical
+  shell: 'wget --quiet --output-document - https://downloads.thebiogrid.org/Download/BioGRID/Latest-Release/BIOGRID-MV-Physical-LATEST.tab2.zip | gunzip | src/biogrid2txt > {output}'
 
 rule:
   input: scores, scoresrep

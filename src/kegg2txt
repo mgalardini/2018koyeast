@@ -1,0 +1,36 @@
+#!/usr/bin/env python
+
+def get_options():
+    import argparse
+
+    description = 'Convert genes to pathways table to a linear format'
+    parser = argparse.ArgumentParser(description=description,
+                                     prog='kegg2txt')
+
+    parser.add_argument('--conversion', action='store',
+                        default=None,
+                        help='')
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    options = get_options()
+    import sys
+
+    conv = {}
+    if options.conversion is not None:
+        for l in open(options.conversion):
+            g1, g2 = l.rstrip().split()
+            conv[g1] = g2
+
+    cpx = {}
+    for l in sys.stdin:
+        s = l.rstrip().split()
+        g = conv.get(s[0], s[0])
+        c = s[1]
+        cpx[c] = cpx.get(c, set())
+        cpx[c].add(g)
+
+    for c, genes in cpx.items():
+        print('%s\t%s' % (c, ','.join([x for x in genes
+                                       if str(x) != 'nan'])))

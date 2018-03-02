@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+
+def get_options():
+    import argparse
+
+    description = 'Convert genes to pathways table to a linear format'
+    parser = argparse.ArgumentParser(description=description,
+                                     prog='string2txt')
+
+    parser.add_argument('--conversion', action='store',
+                        default=None,
+                        help='')
+    parser.add_argument('--score', action='store',
+                        type=int,
+                        default=500,
+                        help='Score threshold [Default: 500]')
+    parser.add_argument('--attribute', action='store',
+                        default='combined_score',
+                        help='Score to consider [Default: combined_score]')
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    options = get_options()
+    import sys
+    import pandas as pd
+    import networkx as nx
+
+    conv = {}
+    if options.conversion is not None:
+        for l in open(options.conversion):
+            g1, g2 = l.rstrip().split()
+            conv[g1] = g2
+
+    e = pd.read_table(sys.stdin, sep=' ')
+    e['protein1'] = [conv.get(x.split('.')[1],
+                              x.split('.')[1])
+                     for x in e['protein1']]
+    e['protein2'] = [conv.get(x.split('.')[1],
+                              x.split('.')[1])
+                     for x in e['protein2']]
+
+    g = nx.Graph()
+    for g1, g2, value in e[e[options.attribute] >= options.score][['protein1',
+                                                        'protein2',
+                                                        options.attribute]].values:
+        g.add_edge(g1, g2, weight=value)
+
+    conn = [x for x in nx.connected_components(g)]
+    for i, genes in zip(range(len(conn)), conn):
+        print('%d\t%s' % (i, ','.join([conv.get(x, x) for x in genes])))
