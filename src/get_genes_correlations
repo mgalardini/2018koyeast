@@ -36,4 +36,6 @@ if __name__ == "__main__":
         sys.stderr.write('%s\t%s\n' % (s1, s2))
         x = m[[s1, s2]]
         x = x.corr()
-        x.to_csv(os.path.join(options.out, '%s_%s.tsv' % (s1, s2)))
+        x = x.loc[s1, s2]
+        x.to_csv(os.path.join(options.out, '%s_%s.tsv' % (s1, s2)),
+                 sep='\t')
