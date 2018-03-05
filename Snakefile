@@ -18,7 +18,7 @@ conditions = pj(data, 'conditions.tsv')
 
 # variables extracted from data file
 strains = sorted({x.rstrip().split('\t')[1]
-                  for x in open(raw)})
+                  for x in open(raw)} - {'strain'})
 
 # output files
 scores = pj(out, 'ko_scores.txt')
