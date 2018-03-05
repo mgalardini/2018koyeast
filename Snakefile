@@ -33,6 +33,9 @@ scorrelations = [pj(corr, '%s.tsv' % x)
                  for x in strains]
 pcorrelations = [pj(corr, '%s_%s.tsv' % (s1, s2))
                  for s1,s2 in itertools.combinations(strains, 2)]
+# COP scores
+cop = [pj(corr, '%s.cop.tsv' % x)
+       for x in strains]
 # deviating s-scores
 deviations = pj(out, 'deviating.tsv')
 # ko data (Hillenmeyer 2008)
@@ -72,7 +75,8 @@ rule all:
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical,
-    scorrelations, pcorrelations
+    scorrelations, pcorrelations,
+    cop
 
 rule:
   input: raw, conditions
@@ -202,3 +206,12 @@ rule:
   input: obo, study, population, gaf
   output: goe
   shell: 'find_enrichment.py --obo {input} --method fdr_bh | grep "^GO" > {output}'
+
+rule:
+  input:
+    corr=pj(corr, 'S288C.tsv'),
+    target=pj(corr, '{strain}.tsv'),
+    cpx=biogrid_physical
+  output: pj(corr, '{strain}.cop.tsv')
+  shell:
+    'src/get_cop_score {input.corr} {input.target} {input.cpx} --fraction 0.01 > {output}'
