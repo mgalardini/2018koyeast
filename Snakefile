@@ -1,4 +1,5 @@
 import os
+import itertools
 
 # shortcuts
 pj = os.path.join
@@ -7,12 +8,17 @@ pj = os.path.join
 data = config.get('data', 'data')
 out = config.get('out', 'out')
 ko = pj(out, 'hillenmeyer2008')
+corr = pj(out, 'correlations')
 
 # data files
 raw = pj(data, 'ko_scores.tsv')
 rawref = pj(data, 'ko_scores_s288c.tsv')
 rawrep = pj(data, 'ko_scores_rep.tsv')
 conditions = pj(data, 'conditions.tsv')
+
+# variables extracted from data file
+strains = sorted({x.rstrip().split('\t')[1]
+                  for x in open(raw)})
 
 # output files
 scores = pj(out, 'ko_scores.txt')
@@ -22,6 +28,11 @@ dups = pj(out, 'duplicates_correlation.tsv')
 orth = pj(out, 'orthologs_correlation.tsv')
 cond = pj(out, 'orthologs_conditions_correlation.tsv')
 genes = pj(out, 'stratified_genes.tsv')
+# gene-gene correaltions
+scorrelations = [pj(corr, '%s.tsv' % x)
+                 for x in strains]
+pcorrelations = [pj(corr, '%s_%s.tsv' % (s1, s2))
+                 for s1,s2 in itertools.combinations(strains, 2)]
 # deviating s-scores
 deviations = pj(out, 'deviating.tsv')
 # ko data (Hillenmeyer 2008)
@@ -60,7 +71,8 @@ rule all:
     features, deviations,
     gaf, obo, goe,
     cpx, kegg, string,
-    biogrid, biogrid_physical
+    biogrid, biogrid_physical,
+    scorrelations, pcorrelations
 
 rule:
   input: raw, conditions
@@ -91,6 +103,20 @@ rule:
   input: scores
   output: cond
   shell: 'src/orthologs_correlation_conditions {input} > {output}'
+
+rule:
+  input:
+    scores=scores,
+    out=out
+  output: scorrelations
+  shell: 'src/get_genes_correlations {input.scores} --out {input.out} --single'
+
+rule:
+  input:
+    scores=scores,
+    out=out
+  output: pcorrelations
+  shell: 'src/get_genes_correlations {input.scores} --out {input.out}'
 
 rule:
   input: scores
