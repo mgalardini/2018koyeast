@@ -107,14 +107,14 @@ rule:
 rule:
   input:
     scores=scores,
-    out=out
+    out=corr
   output: scorrelations
   shell: 'src/get_genes_correlations {input.scores} --out {input.out} --single'
 
 rule:
   input:
     scores=scores,
-    out=out
+    out=corr
   output: pcorrelations
   shell: 'src/get_genes_correlations {input.scores} --out {input.out}'
 
