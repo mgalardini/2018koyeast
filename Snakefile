@@ -33,9 +33,16 @@ scorrelations = [pj(corr, '%s.tsv' % x)
                  for x in strains]
 pcorrelations = [pj(corr, '%s_%s.tsv' % (s1, s2))
                  for s1,s2 in itertools.combinations(strains, 2)]
-# COP scores
+# COP/LLR scores and modules
 cop = [pj(corr, '%s.cop.tsv' % x)
        for x in strains]
+llr = [pj(corr, '%s.llr.tsv' % x)
+       for x in strains]
+llr_genes = pj(corr, 'unique_genes.txt')
+modules = [pj(corr, '%s_%s.modules.tsv' % (s1, s2))
+           for s1,s2 in itertools.combinations(strains, 2)
+           if s1 == 'S288C'
+           or s2 == 'S288C']
 # deviating s-scores
 deviations = pj(out, 'deviating.tsv')
 # ko data (Hillenmeyer 2008)
@@ -74,9 +81,8 @@ rule all:
     features, deviations,
     gaf, obo, goe,
     cpx, kegg, string,
-    biogrid, biogrid_physical,
-    scorrelations, pcorrelations,
-    cop
+    biogrid, biogrid_physical, 
+    modules
 
 rule:
   input: raw, conditions
@@ -215,3 +221,25 @@ rule:
   output: pj(corr, '{strain}.cop.tsv')
   shell:
     'src/get_cop_score {input.corr} {input.target} {input.cpx} --fraction 0.01 > {output}'
+
+rule:
+  input:
+    corr=pj(corr, '{strain}.tsv'),
+    cop=pj(corr, '{strain}.cop.tsv')
+  output: pj(corr, '{strain}.llr.tsv')
+  shell:
+    'src/get_llr_score {input} > {output}'
+
+rule:
+  input: llr
+  output: llr_genes
+  shell: 'src/unique_interactions {input} > {output}'
+
+rule:
+  input:
+    llr1=pj(corr, '{strain1}.llr.tsv'),
+    llr2=pj(corr, '{strain2}.llr.tsv'),
+    llr_genes=llr_genes
+  output: pj(corr, '{strain1}_{strain2}.modules.tsv')
+  threads: 20
+  shell: 'src/merge_strains {input.llr1} {input.llr2} --cpu {threads} --subset {input.llr_genes} > {output}'

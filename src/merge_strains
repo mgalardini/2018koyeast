@@ -1,0 +1,157 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+import os
+import contextlib
+
+def get_options():
+    import argparse
+
+    description = 'Merge two strains gene interactions'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('llr1',
+                        help='LLR file name for strain 1')
+    parser.add_argument('llr2',
+                        help='LLR file name for strain 2')
+
+    parser.add_argument('--subset',
+                        default=None,
+                        help='Subset of gene-gene interactions to restrict'
+                              ' the search to')
+    parser.add_argument('--cpu',
+                        type=int,
+                        default=1,
+                        help='Number of concurrent threads [Default: 1]')
+    parser.add_argument('--stop',
+                        type=float,
+                        default=0.,
+                        help='Stopping condition [Default: score 0]')
+
+    return parser.parse_args()
+
+# thanks to Laurent LAPORTE on SO
+@contextlib.contextmanager
+def set_env(**environ):
+    """
+    Temporarily set the process environment variables.
+    >>> with set_env(PLUGINS_DIR=u'test/plugins'):
+    ...   "PLUGINS_DIR" in os.environ
+    True
+    >>> "PLUGINS_DIR" in os.environ
+    False
+    """
+    old_environ = dict(os.environ)
+    os.environ.update(environ)
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(old_environ)
+
+def merge_score(l1, l2, g1, g2):
+    if type(g1) == str:
+        m1 = (g1,)
+    else:
+        m1 = g1
+    if type(g2) == str:
+        m2 = (g2,)
+    else:
+        m2 = g2
+    s = 1 / (len(m1) * len(m2))
+    s1 = sum([l1.get((g1, g2), l1.get((g2, g1), np.nan))
+              for g1, g2 in itertools.product(
+                  [x for x in m1],
+                  [x for x in m2])
+              if g1 != g2])
+    s2 = sum([l2.get((g1, g2), l2.get((g2, g1), np.nan))
+              for g1, g2 in itertools.product(
+                  [x for x in m1],
+                  [x for x in m2])
+              if g1 != g2])
+    score = (s * s1) + (s * s2)
+    return g1, g2, score
+
+def iter_modules(l1, l2, m_iter):
+    for n, (m1, m2) in enumerate(m_iter):
+        yield l1, l2, m1, m2
+
+if __name__ == "__main__":
+    options = get_options()
+
+    llr1 = options.llr1
+    llr2 = options.llr2
+
+    # avoid numpy taking up more than one thread
+    with set_env(MKL_NUM_THREADS='1',
+                 NUMEXPR_NUM_THREADS='1',
+                 OMP_NUM_THREADS='1'):
+        import numpy as np
+    import sys
+    import itertools
+    import pandas as pd
+    import networkx as nx
+    from multiprocessing import Pool
+
+    sys.stderr.write('Reading input files\n')
+    
+    l1 = pd.read_table(llr1, index_col=[0, 1])['cop']
+    l2 = pd.read_table(llr2, index_col=[0, 1])['cop']
+
+    if options.subset is None:
+        idx = sorted({x for x in l1.index.intersection(l2.index)
+                      if x[0] != x[1]})
+    else:
+        idx = sorted({tuple(x.rstrip().split()) for x in open(options.subset)
+                      if x.rstrip().split()[0] != x.rstrip().split()[1]})
+
+    sys.stderr.write('Reducing to %d interactions\n' % len(idx))
+    
+    l1 = l1.loc[idx].dropna().to_dict()
+    l2 = l2.loc[idx].dropna().to_dict()
+    
+    sys.stderr.write('Reduced to %d and %d interactions\n' % (len(l1), len(l2)))
+
+    pool = Pool(options.cpu)
+
+    sys.stderr.write('Starting iteration 0\n')
+    
+    index = {x for y in idx for x in y}
+    g = nx.Graph()
+    i_iter = itertools.combinations(index, 2)
+    m_iter = iter_modules(l1, l2, i_iter)
+    while True:
+        ret = pool.starmap(merge_score,
+                           itertools.islice(m_iter,
+                                            options.cpu*100000))
+        if not ret:
+            break
+        for x in ret:
+            g1, g2, v = x
+            if np.isnan(v):
+                continue
+            g.add_edge(g1, g2, weight=v)
+
+    sys.stderr.write('iteration 0: %d nodes, %d edges\n' % (len(g.nodes()),
+                                                            len(g.edges())))
+
+    i = 0
+    print('iteration\tcomponents\tbest-score')
+    
+    while True:
+        i += 1
+        k = sorted(g.edges(), key=lambda x: -g.edges[x]['weight'])[0]
+        v = g.edges[k]['weight']
+        if v <= options.stop:
+            break
+        g.remove_node(k[0])
+        g.remove_node(k[1])
+        g.add_edges_from([(x, k, {'weight': merge_score(l1, l2, x, k)[2]})
+                          for x in g.nodes()])
+        sys.stderr.write('iteration %d: %d nodes, %d edges\n' % (i,
+                                                                 len(g.nodes()),
+                                                                 len(g.edges())))
+        for n in g.nodes():
+            if type(n) == str:
+                continue
+            print('%d\t%s\t%f' % (i, ','.join(n), v))

@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+def get_options():
+    import argparse
+
+    description = 'Transform the COP score into LLR'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('correlation',
+                        help='Correlations file name')
+    parser.add_argument('cop',
+                        help='COP scores file name')
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    options = get_options()
+
+    corr = options.correlation
+    cop = options.cop
+
+    import sys
+    import numpy as np
+    import pandas as pd
+    from scipy import stats
+
+    m = pd.read_table(corr, index_col=0)
+    m = m.unstack()
+    c = pd.read_table(cop, index_col=[0, 1])['cop']
+
+    idx1 = {tuple(sorted((g1, g2))) for g1,g2 in m.index}
+    idx2 = {tuple(sorted((g1, g2))) for g1,g2 in c.index}
+    idx = idx1.intersection(idx2)
+
+    m = m.loc[sorted(idx)]
+    c = c.loc[sorted(idx)]
+
+    prob = np.empty(m.shape[0])
+    prob[m >= m.mean()] = stats.norm.sf(m[m >= m.mean()],
+                                        loc=m.mean(),
+                                        scale=m.std())
+    prob[m < m.mean()] = stats.norm.cdf(m[m < m.mean()],
+                                        loc=m.mean(),
+                                        scale=m.std())
+    llr = np.log(c / prob)
+
+    p = pd.Series(llr,
+                  index=m.index)
+    p.to_csv(sys.stdout,
+             sep='\t',
+             header=True)
