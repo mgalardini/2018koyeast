@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+def get_options():
+    import argparse
+
+    description = 'Merge two strains gene interactions'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('llr1',
+                        help='LLR file name for strain 1')
+    parser.add_argument('llr2',
+                        help='LLR file name for strain 2')
+
+    parser.add_argument('--subset',
+                        default=None,
+                        help='Subset of gene-gene interactions to restrict'
+                              ' the search to')
+
+    return parser.parse_args()
+
+def merge_score(values):
+    return np.sum(values)
+
+if __name__ == "__main__":
+    options = get_options()
+
+    llr1 = options.llr1
+    llr2 = options.llr2
+
+    import sys
+    import numpy as np
+    import pandas as pd
+
+    sys.stderr.write('Reading input files\n')
+    
+    l1 = pd.read_table(llr1, index_col=[0, 1])['cop']
+    l2 = pd.read_table(llr2, index_col=[0, 1])['cop']
+
+    if options.subset is None:
+        idx = sorted({tuple(sorted(x)) for x in l1.index.intersection(l2.index)
+                      if x[0] != x[1]})
+    else:
+        idx = sorted({tuple(sorted(x.rstrip().split())) for x in open(options.subset)
+                      if x.rstrip().split()[0] != x.rstrip().split()[1]})
+
+    sys.stderr.write('Reducing to %d interactions\n' % len(idx))
+    
+    l1 = l1.loc[idx].dropna()
+    l2 = l2.loc[idx].dropna()
+
+    l1.name = 'l1'
+    l2.name = 'l2'
+    
+    l = l1.to_frame().join(l2.to_frame()).dropna()
+
+    sys.stderr.write('Reduced to %d interactions\n' % l.shape[0])
+    sys.stderr.write('Computing merge-score\n')
+    
+    m = l.apply(merge_score, axis=1).dropna()
+
+    sys.stderr.write('Producing output (%d scores)\n' % m.shape[0])
+
+    m.name = 'merge-score'
+
+    m.to_frame().to_csv(sys.stdout, sep='\t')

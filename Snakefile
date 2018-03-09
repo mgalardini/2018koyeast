@@ -240,6 +240,13 @@ rule:
     llr1=pj(corr, '{strain1}.llr.tsv'),
     llr2=pj(corr, '{strain2}.llr.tsv'),
     llr_genes=llr_genes
+  output: pj(corr, '{strain1}_{strain2}.mergescore.tsv')
+  shell: 'src/merge_score {input.llr1} {input.llr2} --subset {input.llr_genes} > {output}'
+
+rule:
+  input:
+    scores=pj(corr, '{strain1}_{strain2}.mergescore.tsv'),
+    llr1=pj(corr, '{strain1}.llr.tsv'),
+    llr2=pj(corr, '{strain2}.llr.tsv')
   output: pj(corr, '{strain1}_{strain2}.modules.tsv')
-  threads: 20
-  shell: 'src/merge_strains {input.llr1} {input.llr2} --cpu {threads} --subset {input.llr_genes} > {output}'
+  shell: 'src/merge_strains {input.scores} {input.llr1} {input.llr2} > {output}'
