@@ -63,6 +63,11 @@ biogrid_physical = pj(out, 'biogrid.physical.txt')
 study = pj(out, 'deviating_study.txt')
 population = pj(out, 'deviating_population.txt')
 goe = pj(out, 'deviating_enrichemnt.tsv')
+# go terms enrichment for conserved modules
+mpopulation = pj(corr, 'population.txt')
+gomodules = [pj(corr, '%s.go.tsv' % (s))
+             for s in strains
+             if s != 'S288C']
 # stratified results
 strata = ['g%d' % x for x in range(4)]
 sdups = [pj('out', 'duplicates_correlation_%s.tsv' % x)
@@ -82,7 +87,7 @@ rule all:
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical, 
-    modules
+    modules, gomodules
 
 rule:
   input: raw, conditions
@@ -250,3 +255,17 @@ rule:
     llr2=pj(corr, '{strain2}.llr.tsv')
   output: pj(corr, '{strain1}_{strain2}.modules.tsv')
   shell: 'src/merge_strains {input.scores} {input.llr1} {input.llr2} > {output}'
+
+rule:
+  input: llr_genes
+  output: mpopulation
+  shell: 'awk \'{{print $1"\\n"$2}}\' {input} | sort | uniq > {output}'
+
+rule:
+  input:
+    modules=pj(corr, 'S288C_{strain}.modules.tsv'),
+    obo=obo,
+    pop=mpopulation,
+    gaf=gaf
+  output: pj(corr, '{strain}.go.tsv')
+  shell: 'src/modules2go {input} {output} --minimum 6 --maximum 12 --spacer 100'
