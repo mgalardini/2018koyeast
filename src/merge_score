@@ -38,11 +38,9 @@ if __name__ == "__main__":
     l2 = pd.read_table(llr2, index_col=[0, 1])['cop']
 
     if options.subset is None:
-        idx = sorted({tuple(sorted(x)) for x in l1.index.intersection(l2.index)
-                      if x[0] != x[1]})
+        idx = sorted({tuple(sorted(x)) for x in l1.index.intersection(l2.index)})
     else:
-        idx = sorted({tuple(sorted(x.rstrip().split())) for x in open(options.subset)
-                      if x.rstrip().split()[0] != x.rstrip().split()[1]})
+        idx = sorted({tuple(sorted(x.rstrip().split())) for x in open(options.subset)})
 
     sys.stderr.write('Reducing to %d interactions\n' % len(idx))
     

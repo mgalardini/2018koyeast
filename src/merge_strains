@@ -71,6 +71,19 @@ if __name__ == "__main__":
     sys.stderr.write('iteration 0: %d nodes, %d edges\n' % (len(g.nodes()),
                                                             len(g.edges())))
     
+    sys.stderr.write('Pruning imbalanced interactions\n')
+    remove = set()
+    for g1, g2 in g.edges():
+        if g1 == g2:
+            continue
+        if g.edges[(g1, g2)]['weight'] <= 0.5 * max(g.edges[(g1, g1)]['weight'],
+                                                    g.edges[(g2, g2)]['weight']):
+            remove.add((g1, g2))
+    g.remove_edges_from(remove)
+
+    sys.stderr.write('iteration 0: %d nodes, %d edges\n' % (len(g.nodes()),
+                                                            len(g.edges())))
+    
     sys.stderr.write('Reading input files\n')
     
     l1 = pd.read_table(llr1, index_col=[0, 1])['cop'].dropna().to_dict()
@@ -78,7 +91,8 @@ if __name__ == "__main__":
     
     i = 0
     print('iteration\tcomponents\tbest-score')
-    edges = sorted(g.edges(data=True), key=lambda x: x[-1]['weight'])
+    edges = sorted([(x, y, z) for x,y,z in g.edges(data=True)
+                    if x != y], key=lambda x: x[-1]['weight'])
     v1, v2, v = edges.pop()
     maxk = (v1, v2)
     maxv = v['weight']
@@ -105,15 +119,23 @@ if __name__ == "__main__":
             sys.stderr.write('no more nodes to be merged\n')
             print('%d\t%s\t%f' % (i, ','.join(k), v))
             break
-        tmp = [(x, k, {'weight': merge_score(l1, l2, x, k)[2]})
-               for x in g.nodes()]
+        self_score = merge_score(l1, l2, k, k)[2]
+        tmp = []
+        for x in g.nodes():
+            mscore = merge_score(l1, l2, x, k)[2]
+            if mscore <= 0.5 * max(g.edges[(x, x)]['weight'],
+                                   self_score):
+                continue
+            tmp.append([x, k, {'weight': mscore}])
+        tmp.append((k, k, {'weight': self_score}))
         g.add_edges_from(tmp)
         if new_edges is None:
             new_edges = tmp
         else:
             new_edges.extend(tmp)
         new_edges = sorted([x for x in new_edges
-                            if x[0] not in erased and x[1] not in erased],
+                            if x[0] not in erased and x[1] not in erased
+                            and x[0] != x[1]],
                            key=lambda x: x[-1]['weight'])
         sys.stderr.write('iteration %d: %d nodes, %d edges\n' % (i,
                                                                  len(g.nodes()),
