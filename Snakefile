@@ -6,6 +6,7 @@ pj = os.path.join
 
 # directories
 data = config.get('data', 'data')
+assemblies = pj(data, 'assemblies')
 out = config.get('out', 'out')
 ko = pj(out, 'hillenmeyer2008')
 corr = pj(out, 'correlations')
@@ -76,6 +77,9 @@ sorth = [pj('out', 'orthologs_correlation_%s.tsv' % x)
          for x in strata]
 scond = [pj('out', 'orthologs_condition_correlation_%s.tsv' % x)
          for x in strata]
+# mash distances
+mash_sketches = pj(out, 'genomes')
+mash = pj(out, 'genome_distances.tsv')
 
 rule all:
   input:
@@ -87,7 +91,8 @@ rule all:
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical, 
-    modules, gomodules
+    modules, gomodules,
+    mash
 
 rule:
   input: raw, conditions
@@ -269,3 +274,15 @@ rule:
     gaf=gaf
   output: pj(corr, '{strain}.go.tsv')
   shell: 'src/modules2go {input} {output} --minimum 6 --maximum 12 --spacer 100'
+
+rule:
+  input: assemblies
+  output: mash_sketches
+  shell:
+    'mash sketch -s 10000 -o {output} {input}/*/assembly/genome.fa'
+
+rule:
+  input: mash_sketches
+  output: mash
+  shell:
+    'mash dist {input}.msh {input}.msh | src/square_mash > {output}'
