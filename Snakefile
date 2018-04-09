@@ -60,6 +60,7 @@ kegg = pj(out, 'modules.kegg.txt')
 string = pj(out, 'string.combined.800.txt')
 biogrid = pj(out, 'biogrid.all.txt')
 biogrid_physical = pj(out, 'biogrid.physical.txt')
+biogrid_genetic = pj(out, 'biogrid.genetic.txt')
 # go terms enrichemnt
 study = pj(out, 'deviating_study.txt')
 population = pj(out, 'deviating_population.txt')
@@ -90,7 +91,7 @@ rule all:
     features, deviations,
     gaf, obo, goe,
     cpx, kegg, string,
-    biogrid, biogrid_physical, 
+    biogrid, biogrid_physical, biogrid_genetic,
     modules, gomodules,
     mash
 
@@ -201,8 +202,10 @@ rule:
   shell: 'wget --quiet --output-document - https://string-db.org/download/protein.links.detailed.v10.5/4932.protein.links.detailed.v10.5.txt.gz | zcat | src/string2txt --score 800 > {output}'
 
 rule:
-  output: biogrid
-  shell: 'wget -O tmp.zip https://downloads.thebiogrid.org/Download/BioGRID/Latest-Release/BIOGRID-ORGANISM-LATEST.tab2.zip && unzip -j tmp.zip BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.158.tab2.txt -d . && cat BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.158.tab2.txt | src/biogrid2txt > {output} && rm tmp.zip && rm BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.158.tab2.txt'
+  output:
+    biogrid=biogrid,
+    biogrid_genetic=biogrid_genetic
+  shell: 'wget -O tmp.zip https://downloads.thebiogrid.org/Download/BioGRID/Release-Archive/BIOGRID-3.4.159/BIOGRID-ORGANISM-3.4.159.tab2.zip && unzip -j tmp.zip BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.159.tab2.txt -d . && cat BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.159.tab2.txt | src/biogrid2txt > {output.biogrid} && cat BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.159.tab2.txt | src/biogrid2txt --genetic > {output.biogrid_genetic} && rm tmp.zip && rm BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.159.tab2.txt'
 
 rule:
   output: biogrid_physical

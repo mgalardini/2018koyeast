@@ -14,6 +14,11 @@ def get_options():
                         type=int,
                         help='Organism [Default: 559292]')
 
+    parser.add_argument('--genetic',
+                        action='store_true',
+                        default=False,
+                        help='Focus on genetic interactions only')
+    
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -31,7 +36,33 @@ if __name__ == "__main__":
     m = pd.read_table(sys.stdin, sep='\t')
     m = m[(m['Organism Interactor A'] == options.organism) &
           (m['Organism Interactor B'] == options.organism)]
-    for g1, g2 in {tuple(sorted((x, y)))
-                   for x,y in m[['Systematic Name Interactor A',
-                                 'Systematic Name Interactor B']].values}:
-        print('%s\t%s' % (g1, g2))
+    
+    if not options.genetic:
+        for g1, g2 in {tuple(sorted((x, y)))
+                       for x,y in m[['Systematic Name Interactor A',
+                                     'Systematic Name Interactor B']].values}:
+            print('%s\t%s' % (g1, g2))
+    else:
+        print('interaction\tgene1\tgene2\tcount')
+        m = m[m['Experimental System Type'] == 'genetic']
+        m = m[m['Experimental System'].isin({'Positive Genetic',
+                                             'Negative Genetic'})]
+
+        neg = {}
+        for g1, g2 in m[m['Experimental System']
+                        == 'Negative Genetic'][['Systematic Name Interactor A',
+                                                'Systematic Name Interactor B']].values:
+            t = tuple(sorted((g1, g2)))
+            neg[t] = neg.get(t, 0)
+            neg[t] += 1
+        for (g1, g2), v in neg.items():
+            print('negative\t%s\t%s\t%d' % (g1, g2, v))
+        pos = {}
+        for g1, g2 in m[m['Experimental System']
+                        == 'Positive Genetic'][['Systematic Name Interactor A',
+                                                'Systematic Name Interactor B']].values:
+            t = tuple(sorted((g1, g2)))
+            pos[t] = pos.get(t, 0)
+            pos[t] += 1
+        for (g1, g2), v in pos.items():
+            print('positive\t%s\t%s\t%d' % (g1, g2, v))
