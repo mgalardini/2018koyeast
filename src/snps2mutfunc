@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+
+
+def get_options():
+    import argparse
+
+    description = 'Cross a SNPs table with mutfunc'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('snps',
+                        help='SNPs table')
+    parser.add_argument('mutfunc',
+                        help='Mutfunc table')
+
+    parser.add_argument('--strain',
+                        default=None,
+                        nargs='+',
+                        help='Strains to consider [Default: all]')
+    parser.add_argument('--foldx',
+                        default=False,
+                        action='store_true',
+                        help='FoldX table [Default: sift]')
+    
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import sys
+    import pandas as pd
+
+    m = pd.read_table(options.snps,
+                      index_col=[0, 1, 2, 3])
+
+    if options.strain is not None:
+        strains = set(options.strain)
+        idx = [k for k,v in m.iterrows()
+               if len(strains.intersection(v['strains'].split(','))) > 0]
+        m = m.loc[idx]
+
+    if not options.foldx:
+        s = pd.read_table(options.mutfunc,
+                          index_col=[0, 2, 1, 3])
+    else:
+        s = pd.read_table(options.mutfunc,
+                          index_col=[6, 2, 5, 3])
+
+    idx = s.index.intersection(m.index)
+    s = s.loc[idx]
+    s.to_csv(sys.stdout, sep='\t')

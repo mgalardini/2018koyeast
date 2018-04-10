@@ -28,6 +28,7 @@ if __name__ == "__main__":
                                    index_col=1)
         conversion = conversion[conversion.columns[0]].to_dict()
 
+    print('gene\tref\tpos\tmut\taf\tstrains')
     m = pd.read_table(options.table)
     for gene, ref, mut, pos, strains, af in m[(m['0=dubious'] == 1) &
                                               (m['1=synonymous'] == 0)][
