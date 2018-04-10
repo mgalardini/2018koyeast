@@ -87,6 +87,8 @@ foldx2 = pj(mutfunc, 'mod.tsv.gz')
 vsift = pj(out, 'sift_snps.tsv')
 vfoldx1 = pj(out, 'exp_snps.tsv')
 vfoldx2 = pj(out, 'mod_snps.tsv')
+# mutfunc for each strain
+vmutfunc = pj(out, 'mutfunc_snps.tsv')
 # go terms enrichemnt
 study = pj(out, 'deviating_study.txt')
 population = pj(out, 'deviating_population.txt')
@@ -114,7 +116,7 @@ rule all:
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
     mash,
-    vsift, vfoldx1, vfoldx2
+    vmutfunc
 
 rule:
   input: raw, conditions
@@ -357,3 +359,14 @@ rule:
   output: vfoldx2
   shell:
     'src/snps2mutfunc {input} --strain YPS606 Y55 UWOPS87_2421 --foldx > {output}'
+
+rule:
+  input:
+    snps=parsed_snps,
+    sift=vsift,
+    exp=vfoldx1,
+    mod=vfoldx2,
+    conversion=uniprot2gene
+  output: vmutfunc
+  shell:
+    'src/combine_mutfunc {input.snps} {input.sift} {input.exp} {input.mod} Y55 YPS606 UWOPS87_2421 --conversion {input.conversion} > {output}'

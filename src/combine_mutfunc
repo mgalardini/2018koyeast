@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+
+
+def get_options():
+    import argparse
+
+    description = 'Combine mutfunc predictions'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('snps',
+                        help='SNPs table')
+    parser.add_argument('sift',
+                        help='sift table')
+    parser.add_argument('foldx1',
+                        help='exp table')
+    parser.add_argument('foldx2',
+                        help='mod table')
+    parser.add_argument('strain',
+                        nargs='+',
+                        help='strain to consider')
+
+    parser.add_argument('--conversion',
+                        default=None,
+                        help='Uniprot IDs to gene IDs file')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import sys
+    import numpy as np
+    import pandas as pd
+
+    conversion = {}
+    if options.conversion is not None:
+        conversion = pd.read_table(options.conversion,
+                                   index_col=0)
+        conversion = conversion[conversion.columns[0]].to_dict()
+    
+    r = []
+    for strain in options.strain:
+        m = pd.read_table(options.snps,
+                          index_col=[0, 1, 2, 3])
+
+        idx = [k for k,v in m.iterrows()
+               if strain in v['strains'].split(',')]
+        m = m.loc[idx]
+
+        s = pd.read_table(options.sift, index_col=[0, 1, 2, 3])
+        f1 = pd.read_table(options.foldx1, index_col=[0, 1, 2, 3])
+        f2 = pd.read_table(options.foldx2, index_col=[0, 1, 2, 3])
+
+        m['sift'] = np.empty(m.shape[0])
+        m.loc[:, 'sift'] = np.nan
+        m['exp'] = np.empty(m.shape[0])
+        m.loc[:, 'exp'] = np.nan
+        m['mod'] = np.empty(m.shape[0])
+        m.loc[:, 'mod'] = np.nan
+
+        m.loc[m.index.intersection(s.index), 'sift'] = s.loc[m.index.intersection(s.index), 'score']
+        t = f1.loc[m.index.intersection(f1.index), 'ddG']
+        t = t[~t.index.duplicated()]
+        m.loc[m.index.intersection(f1.index), 'exp'] = t
+        t = f2.loc[m.index.intersection(f2.index), 'ddG']
+        t = t[~t.index.duplicated()]
+        m.loc[m.index.intersection(f2.index), 'mod'] = t
+
+        m = m[['af', 'sift', 'exp', 'mod']].reset_index()
+        m['gene'] = [conversion.get(x, x) for x in m['gene']]
+        m['strain'] = [strain] * m.shape[0]
+
+        m = m[['strain', 'gene', 'ref', 'pos', 'mut', 'af', 'sift', 'exp', 'mod']]
+        r.append(m)
+    
+    m = pd.concat(r)
+    m.to_csv(sys.stdout, sep='\t', index=False)
