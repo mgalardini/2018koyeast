@@ -7,6 +7,7 @@ pj = os.path.join
 # directories
 data = config.get('data', 'data')
 assemblies = pj(data, 'assemblies')
+variants = pj(data, 'variants')
 out = config.get('out', 'out')
 ko = pj(out, 'hillenmeyer2008')
 corr = pj(out, 'correlations')
@@ -70,6 +71,11 @@ string = pj(out, 'string.combined.800.txt')
 biogrid = pj(out, 'biogrid.all.txt')
 biogrid_physical = pj(out, 'biogrid.physical.txt')
 biogrid_genetic = pj(out, 'biogrid.genetic.txt')
+# variants data
+snps = pj(variants, 'sgrp_Sc_SNPs.txt')
+vcf = pj(variants, 'SGRP2-cerevisiae-freebayes-snps-Q30-GQ30.vcf.gz')
+indels1 = pj(variants, 'indels', 'Sc_Ind_cr.txt')
+indels2 = pj(variants, 'indels', 'Sc_Ind_ncr.txt')
 # go terms enrichemnt
 study = pj(out, 'deviating_study.txt')
 population = pj(out, 'deviating_population.txt')
@@ -96,7 +102,7 @@ rule all:
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
-    mash
+    mash, snps, vcf, indels1
 
 rule:
   input: raw, conditions
@@ -292,3 +298,19 @@ rule:
   output: mash
   shell:
     'mash dist {input} {input} | src/square_mash > {output}'
+
+rule:
+  output: snps
+  shell:
+    'wget -O {output} "http://www.moseslab.csb.utoronto.ca/sgrp/sgrp_Sc_SNPs.txt"'
+
+rule:
+  output: vcf
+  shell:
+    'wget -O {output} "http://www.moseslab.csb.utoronto.ca/sgrp/data/SGRP2-cerevisiae-freebayes-snps-Q30-GQ30.vcf.gz"'
+
+rule:
+  params: variants
+  output: indels1
+  shell:
+    'wget -O {params}/indels.tar.gz "http://www.moseslab.csb.utoronto.ca/sgrp/sgrp_indels_apr2011.tar.gz" && cd {params} && tar -xvf indels.tar.gz && rm indels.tar.gz'
