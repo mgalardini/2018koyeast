@@ -34,6 +34,8 @@ scorrelations = [pj(corr, '%s.tsv' % x)
                  for x in strains]
 pcorrelations = [pj(corr, '%s_%s.tsv' % (s1, s2))
                  for s1,s2 in itertools.combinations(strains, 2)]
+#
+# deprecated analysis
 # COP/LLR scores and modules
 cop = [pj(corr, '%s.cop.tsv' % x)
        for x in strains]
@@ -44,6 +46,13 @@ modules = [pj(corr, '%s_%s.modules.tsv' % (s1, s2))
            for s1,s2 in itertools.combinations(strains, 2)
            if s1 == 'S288C'
            or s2 == 'S288C']
+# go terms enrichment for conserved modules
+mpopulation = pj(corr, 'population.txt')
+gomodules = [pj(corr, '%s.go.tsv' % (s))
+             for s in strains
+             if s != 'S288C']
+# end of deprecation
+#
 # deviating s-scores
 deviations = pj(out, 'deviating.tsv')
 # ko data (Hillenmeyer 2008)
@@ -65,11 +74,6 @@ biogrid_genetic = pj(out, 'biogrid.genetic.txt')
 study = pj(out, 'deviating_study.txt')
 population = pj(out, 'deviating_population.txt')
 goe = pj(out, 'deviating_enrichemnt.tsv')
-# go terms enrichment for conserved modules
-mpopulation = pj(corr, 'population.txt')
-gomodules = [pj(corr, '%s.go.tsv' % (s))
-             for s in strains
-             if s != 'S288C']
 # stratified results
 strata = ['g%d' % x for x in range(4)]
 sdups = [pj('out', 'duplicates_correlation_%s.tsv' % x)
@@ -79,7 +83,7 @@ sorth = [pj('out', 'orthologs_correlation_%s.tsv' % x)
 scond = [pj('out', 'orthologs_condition_correlation_%s.tsv' % x)
          for x in strata]
 # mash distances
-mash_sketches = pj(out, 'genomes')
+mash_sketches = pj(out, 'genomes.msh')
 mash = pj(out, 'genome_distances.tsv')
 
 rule all:
@@ -92,7 +96,6 @@ rule all:
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
-    modules, gomodules,
     mash
 
 rule:
@@ -288,4 +291,4 @@ rule:
   input: mash_sketches
   output: mash
   shell:
-    'mash dist {input}.msh {input}.msh | src/square_mash > {output}'
+    'mash dist {input} {input} | src/square_mash > {output}'
