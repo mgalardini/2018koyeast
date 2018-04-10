@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+
+
+def get_options():
+    import argparse
+
+    description = 'Parse the conserved modules and prepare files for GO term enrichments'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('modules',
+                        help='Conserved modules file')
+    parser.add_argument('obo',
+                        help='GO obo file')
+    parser.add_argument('population',
+                        help='GO population file')
+    parser.add_argument('association',
+                        help='GO association file')
+    parser.add_argument('out',
+                        help='Output file')
+    
+    parser.add_argument('--spacer',
+                        type=int,
+                        default=1,
+                        help='Pick one iteration every X [Default: 1, all of them]')
+    parser.add_argument('--maximum',
+                        type=float,
+                        default=10.,
+                        help='Maximum merge score to consider')
+    parser.add_argument('--minimum',
+                        type=float,
+                        default=6.,
+                        help='Minimum merge score to consider')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import os
+    import sys
+    import pandas as pd
+    from goatools.obo_parser import GODag
+    from goatools.go_enrichment import GOEnrichmentStudy
+
+    obodag = GODag(options.obo)
+
+    population = {x.rstrip()
+                  for x in open(options.population)}
+
+    go = {}
+    for l in open(options.association):
+        gene, gos = l.rstrip().split()
+        go[gene] = set(gos.split(';'))
+    
+    goeaobj = GOEnrichmentStudy(population,
+                                go, obodag,
+                                propagate_counts = False,
+                                alpha = 0.05,
+                                methods = ['fdr_bh'])
+
+    m = pd.read_table(options.modules)
+    m.set_index('iteration', inplace=True)
+    m = m[(m['best-score'] <= options.maximum) &
+          (m['best-score'] >= options.minimum)]
+   
+    out = open(options.out, 'w')
+    out.write('\t'.join(['iteration', 'score', 'module',
+                     'GO', 'namespace', 'name',
+                     'study-ratio', 'population-ratio',
+                     'p-uncorrected', 'p-corrected']) + '\n')
+    for i in range(min(m.index), max(m.index), options.spacer):
+        n = m.loc[i]
+        v = n['best-score'].max()
+        sys.stderr.write('iteration %d, %d modules, score %f\n' % (i,
+                                                         n.shape[0],
+                                                         n['best-score'].max()))
+        
+        for c, genes in enumerate(n['components'].values):
+            res = goeaobj.run_study(set(genes.split(',')))
+            for r in res:
+                out.write('\t'.join([str(x)
+                                 for x in [i, v, c,
+                                           r.goterm.id,
+                                           r.goterm.namespace,
+                                           r.goterm.name,
+                                           '%d/%d' % r.ratio_in_study,
+                                           '%d/%d' % r.ratio_in_pop,
+                                           r.p_uncorrected,
+                                           r.p_fdr_bh]]) + '\n')
+    out.close()
