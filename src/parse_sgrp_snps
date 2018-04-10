@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+
+
+def get_options():
+    import argparse
+
+    description = 'Parse the SGRP SNPs table'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('table',
+                        help='Input SNPs table')
+    
+    parser.add_argument('--conversion',
+                        default=None,
+                        help='Uniprot IDs to gene IDs file')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import pandas as pd
+
+    conversion = {}
+    if options.conversion is not None:
+        conversion = pd.read_table(options.conversion,
+                                   index_col=1)
+        conversion = conversion[conversion.columns[0]].to_dict()
+
+    m = pd.read_table(options.table)
+    for gene, ref, mut, pos, strains, af in m[(m['0=dubious'] == 1) &
+                                              (m['1=synonymous'] == 0)][
+                                              ['tag', 'ref aa', 'mutant aa',
+                                               'aa position', 'mutant strains.1',
+                                               'minor allele freq']].values:
+        strains = ','.join(strains.lstrip().rstrip().lstrip('|').split())
+        print('%s\t%s\t%d\t%s\t%f\t%s' % (conversion.get(gene, gene),
+                                          ref, pos, mut, af,
+                                          strains))

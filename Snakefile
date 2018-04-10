@@ -8,6 +8,7 @@ pj = os.path.join
 data = config.get('data', 'data')
 assemblies = pj(data, 'assemblies')
 variants = pj(data, 'variants')
+mutfunc = pj(data, 'mutfunc')
 out = config.get('out', 'out')
 ko = pj(out, 'hillenmeyer2008')
 corr = pj(out, 'correlations')
@@ -17,6 +18,7 @@ raw = pj(data, 'ko_scores.tsv')
 rawref = pj(data, 'ko_scores_s288c.tsv')
 rawrep = pj(data, 'ko_scores_rep.tsv')
 conditions = pj(data, 'conditions.tsv')
+uniprot2gene = pj(data, 'uniprot2orf.tsv')
 
 # variables extracted from data file
 strains = sorted({x.rstrip().split('\t')[1]
@@ -76,6 +78,11 @@ snps = pj(variants, 'sgrp_Sc_SNPs.txt')
 vcf = pj(variants, 'SGRP2-cerevisiae-freebayes-snps-Q30-GQ30.vcf.gz')
 indels1 = pj(variants, 'indels', 'Sc_Ind_cr.txt')
 indels2 = pj(variants, 'indels', 'Sc_Ind_ncr.txt')
+parsed_snps = pj(out, 'sgrp_snps.tsv')
+# mutfunc
+sift = pj(mutfunc, 'sift.tsv.gz')
+foldx1 = pj(mutfunc, 'exp.tsv.gz')
+foldx2 = pj(mutfunc, 'mod.tsv.gz')
 # go terms enrichemnt
 study = pj(out, 'deviating_study.txt')
 population = pj(out, 'deviating_population.txt')
@@ -102,7 +109,7 @@ rule all:
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
-    mash, snps, vcf, indels1
+    mash, parsed_snps
 
 rule:
   input: raw, conditions
@@ -314,3 +321,10 @@ rule:
   output: indels1
   shell:
     'wget -O {params}/indels.tar.gz "http://www.moseslab.csb.utoronto.ca/sgrp/sgrp_indels_apr2011.tar.gz" && cd {params} && tar -xvf indels.tar.gz && rm indels.tar.gz'
+
+rule:
+  input:
+    snps=snps,
+    conversion=uniprot2gene
+  output: parsed_snps
+  shell: 'src/parse_sgrp_snps {input.snps} --conversion {input.conversion} > {output}'
