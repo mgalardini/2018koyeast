@@ -19,6 +19,7 @@ rawref = pj(data, 'ko_scores_s288c.tsv')
 rawrep = pj(data, 'ko_scores_rep.tsv')
 conditions = pj(data, 'conditions.tsv')
 uniprot2gene = pj(data, 'uniprot2orf.tsv')
+rawsizes = pj(data, 'corrected.tsv')
 
 # variables extracted from data file
 strains = sorted({x.rstrip().split('\t')[1]
