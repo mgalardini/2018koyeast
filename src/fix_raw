@@ -4,12 +4,14 @@
 def get_options():
     import argparse
 
-    description = 'Fix conditions names'
+    description = 'Fix conditions names and remove strains'
     parser = argparse.ArgumentParser(description=description)
 
     parser.add_argument('scores')
     parser.add_argument('conditions',
                         help='Conditions table')
+    parser.add_argument('drop',
+                        help='Strains to drop')
 
     return parser.parse_args()
 
@@ -20,7 +22,21 @@ if __name__ == "__main__":
     import sys
     import pandas as pd
 
+    to_drop = {x.rstrip().split('__')[-1]
+               for x in open(options.drop)
+               if not x.startswith('#')}
+    to_drop = {'_'.join((x[:2],
+                         x[2:4],
+                         x[4:6]))
+               for x in to_drop}
+
     m = pd.read_table(options.scores)
+
+    if 'position' not in m.columns:
+        # corner case: raw sizes
+        m['position'] = ['%02d_%02d_%02d' % (x, y, z)
+                         for x, y, z in m[['plate', 'row', 'column']].values]
+    m = m[~m['position'].isin(to_drop)]
 
     ctable = pd.read_table(options.conditions, index_col=0)
     correct = ctable['corrected_condition_tag'].dropna().to_dict()

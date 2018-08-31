@@ -150,6 +150,14 @@ if __name__ == "__main__":
                    how='inner').dropna().join(p2.to_frame(),
                                               how='inner').dropna()
         w = get_deviating_scores(d, s1, s2, x, y, z)
+        # add a new qvalue columns to get rid of "deviations" that are not relevant
+        w['qvalue'] = w['qval'].copy(deep=True)
+        w.loc[w[(w['qval'] < 0.01) &
+                ((w['phenotype1']) & (w['phenotype2'])) &
+                 (np.sign(w['scores1']) == np.sign(w['scores2']))].index, 'qvalue'] = 1
+        w.loc[w[(w['qval'] < 0.01) &
+                ((~w['phenotype1']) & (~w['phenotype2']))].index, 'qvalue'] = 1
+        #
         if b:
             w.to_csv(sys.stdout, sep='\t')
             b = False

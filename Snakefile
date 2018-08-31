@@ -1,4 +1,5 @@
 import os
+import gzip
 import itertools
 
 # shortcuts
@@ -14,21 +15,23 @@ ko = pj(out, 'hillenmeyer2008')
 corr = pj(out, 'correlations')
 
 # data files
-raw = pj(data, 'ko_scores.tsv')
-rawref = pj(data, 'ko_scores_s288c.tsv')
-rawrep = pj(data, 'ko_scores_rep.tsv')
+raw = pj(data, 'ko_scores.tsv.gz')
+rawref = pj(data, 'ko_scores_s288c.tsv.gz')
+rawrep = pj(data, 'ko_scores_rep.tsv.gz')
+rawsizes = pj(data, 'corrected.tsv.gz')
+todrop = pj(data, 'S288C_to_drop.txt')
 conditions = pj(data, 'conditions.tsv')
 uniprot2gene = pj(data, 'uniprot2orf.tsv')
-rawsizes = pj(data, 'corrected.tsv')
 
 # variables extracted from data file
-strains = sorted({x.rstrip().split('\t')[1]
-                  for x in open(raw)} - {'strain'})
+strains = sorted({x.decode().rstrip().split('\t')[1]
+                  for x in gzip.open(raw)} - {'strain'})
 
 # output files
 scores = pj(out, 'ko_scores.txt')
 scoresref = pj(out, 'ko_scores_s288c.txt')
 scoresrep = pj(out, 'ko_scores_rep.txt')
+sizes = pj(out, 'sizes.txt')
 dups = pj(out, 'duplicates_correlation.tsv')
 orth = pj(out, 'orthologs_correlation.tsv')
 cond = pj(out, 'orthologs_conditions_correlation.tsv')
@@ -38,25 +41,6 @@ scorrelations = [pj(corr, '%s.tsv' % x)
                  for x in strains]
 pcorrelations = [pj(corr, '%s_%s.tsv' % (s1, s2))
                  for s1,s2 in itertools.combinations(strains, 2)]
-#
-# deprecated analysis
-# COP/LLR scores and modules
-cop = [pj(corr, '%s.cop.tsv' % x)
-       for x in strains]
-llr = [pj(corr, '%s.llr.tsv' % x)
-       for x in strains]
-llr_genes = pj(corr, 'unique_genes.txt')
-modules = [pj(corr, '%s_%s.modules.tsv' % (s1, s2))
-           for s1,s2 in itertools.combinations(strains, 2)
-           if s1 == 'S288C'
-           or s2 == 'S288C']
-# go terms enrichment for conserved modules
-mpopulation = pj(corr, 'population.txt')
-gomodules = [pj(corr, '%s.go.tsv' % (s))
-             for s in strains
-             if s != 'S288C']
-# end of deprecation
-#
 # deviating s-scores
 deviations = pj(out, 'deviating.tsv')
 # ko data (Hillenmeyer 2008)
@@ -74,22 +58,6 @@ string = pj(out, 'string.combined.800.txt')
 biogrid = pj(out, 'biogrid.all.txt')
 biogrid_physical = pj(out, 'biogrid.physical.txt')
 biogrid_genetic = pj(out, 'biogrid.genetic.txt')
-# variants data
-snps = pj(variants, 'sgrp_Sc_SNPs.txt')
-vcf = pj(variants, 'SGRP2-cerevisiae-freebayes-snps-Q30-GQ30.vcf.gz')
-indels1 = pj(variants, 'indels', 'Sc_Ind_cr.txt')
-indels2 = pj(variants, 'indels', 'Sc_Ind_ncr.txt')
-parsed_snps = pj(out, 'sgrp_snps.tsv')
-# mutfunc
-sift = pj(mutfunc, 'sift.tsv.gz')
-foldx1 = pj(mutfunc, 'exp.tsv.gz')
-foldx2 = pj(mutfunc, 'mod.tsv.gz')
-# parsed mutfunc
-vsift = pj(out, 'sift_snps.tsv')
-vfoldx1 = pj(out, 'exp_snps.tsv')
-vfoldx2 = pj(out, 'mod_snps.tsv')
-# mutfunc for each strain
-vmutfunc = pj(out, 'mutfunc_snps.tsv')
 # go terms enrichemnt
 study = pj(out, 'deviating_study.txt')
 population = pj(out, 'deviating_population.txt')
@@ -106,9 +74,46 @@ scond = [pj('out', 'orthologs_condition_correlation_%s.tsv' % x)
 mash_sketches = pj(out, 'genomes.msh')
 mash = pj(out, 'genome_distances.tsv')
 
+#####################
+# deprecated analysis
+# COP/LLR scores and modules
+cop = [pj(corr, '%s.cop.tsv' % x)
+       for x in strains]
+llr = [pj(corr, '%s.llr.tsv' % x)
+       for x in strains]
+llr_genes = pj(corr, 'unique_genes.txt')
+modules = [pj(corr, '%s_%s.modules.tsv' % (s1, s2))
+           for s1,s2 in itertools.combinations(strains, 2)
+           if s1 == 'S288C'
+           or s2 == 'S288C']
+# go terms enrichment for conserved modules
+mpopulation = pj(corr, 'population.txt')
+gomodules = [pj(corr, '%s.go.tsv' % (s))
+             for s in strains
+             if s != 'S288C']
+# variants data
+snps = pj(variants, 'sgrp_Sc_SNPs.txt')
+vcf = pj(variants, 'SGRP2-cerevisiae-freebayes-snps-Q30-GQ30.vcf.gz')
+indels1 = pj(variants, 'indels', 'Sc_Ind_cr.txt')
+indels2 = pj(variants, 'indels', 'Sc_Ind_ncr.txt')
+parsed_snps = pj(out, 'sgrp_snps.tsv')
+# mutfunc
+sift = pj(mutfunc, 'sift.tsv.gz')
+foldx1 = pj(mutfunc, 'exp.tsv.gz')
+foldx2 = pj(mutfunc, 'mod.tsv.gz')
+# parsed mutfunc
+vsift = pj(out, 'sift_snps.tsv')
+vfoldx1 = pj(out, 'exp_snps.tsv')
+vfoldx2 = pj(out, 'mod_snps.tsv')
+# mutfunc for each strain
+vmutfunc = pj(out, 'mutfunc_snps.tsv')
+# end of deprecation
+####################
+
 rule all:
   input:
-    scores, scoresref, scoresrep, dups,
+    scores, scoresref, scoresrep, sizes,
+    dups, scorrelations, pcorrelations,
     orth, cond, genes,
     sdups, sorth, scond,
     kolog, koz, kopval,
@@ -116,73 +121,77 @@ rule all:
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
-    mash,
-    vmutfunc
+    mash
 
-rule:
-  input: raw, conditions
+rule fix_raw:
+  input: raw, conditions, todrop
   output: scores
-  shell: 'src/fix_conditions {input} > {output}'
+  shell: 'src/fix_raw {input} > {output}'
 
-rule:
-  input: rawref, conditions
+rule fix_rawref:
+  input: rawref, conditions, todrop
   output: scoresref
-  shell: 'src/fix_conditions {input} > {output}'
+  shell: 'src/fix_raw {input} > {output}'
 
-rule:
-  input: rawrep, conditions
+rule fix_rawrep:
+  input: rawrep, conditions, todrop
   output: scoresrep
-  shell: 'src/fix_conditions {input} > {output}'
+  shell: 'src/fix_raw {input} > {output}'
 
-rule:
+rule fix_rawsizes:
+  input: rawsizes, conditions, todrop
+  output: sizes
+  shell: 'src/fix_raw {input} > {output}'
+
+rule duplicates_correlation:
   input: scores
   output: dups
   shell: 'src/duplicates_correlation {input} > {output}'
 
-rule:
+rule orthologs_correlation:
   input: scores
   output: orth
   shell: 'src/orthologs_correlation {input} > {output}'
 
-rule:
+rule orthologs_correlation_conditions:
   input: scores
   output: cond
   shell: 'src/orthologs_correlation_conditions {input} > {output}'
 
-rule:
+rule gene_correlations_single:
   input:
     scores=scores,
     out=corr
   output: scorrelations
   shell: 'src/get_genes_correlations {input.scores} --out {input.out} --single'
 
-rule:
+rule gene_correlations:
   input:
     scores=scores,
     out=corr
   output: pcorrelations
   shell: 'src/get_genes_correlations {input.scores} --out {input.out}'
 
-rule:
+rule stratify_genes:
   input: scores
   output: genes
   shell: 'src/stratify_genes {input} > {output}'
 
-rule:
+rule duplicates_correlation_stratified:
   input:
     scores=scores,
     genes=genes
   output: pj('out', 'duplicates_correlation_{stratum}.tsv')
   shell: 'src/duplicates_correlation --genes {genes} --stratum {wildcards.stratum} {scores} > {output}'
 
-rule:
+rule orthologs_correaltion_stratified:
   input:
     scores=scores,
     genes=genes
   output: pj('out', 'orthologs_correlation_{stratum}.tsv')
   shell: 'src/orthologs_correlation --genes {genes} --stratum {wildcards.stratum} {scores} > {output}'
 
-rule:
+rule orthologs_correlation_conditions_stratified:
   input:
     scores=scores,
     genes=genes
@@ -235,7 +244,7 @@ rule:
   output: biogrid_physical
   shell: 'wget --quiet --output-document - https://downloads.thebiogrid.org/Download/BioGRID/Latest-Release/BIOGRID-MV-Physical-LATEST.tab2.zip | gunzip | src/biogrid2txt > {output}'
 
-rule:
+rule deviating_scores:
   input: scores, scoresrep
   output: deviations
   shell: 'src/get_deviating_scores {input} > {output}'
@@ -245,7 +254,7 @@ rule:
   output: study, population
   shell: 'src/get_deviations_gene_sets {input} {output}'
 
-rule:
+rule deviating_genes_go_enrichment:
   input: obo, study, population, gaf
   output: goe
   shell: 'find_enrichment.py --obo {input} --method fdr_bh | grep "^GO" > {output}'
@@ -302,13 +311,13 @@ rule:
   output: pj(corr, '{strain}.go.tsv')
   shell: 'src/modules2go {input} {output} --minimum 6 --maximum 12 --spacer 100'
 
-rule:
+rule mash_sketches:
   input: assemblies
   output: mash_sketches
   shell:
     'mash sketch -s 10000 -o {output} {input}/*/assembly/genome.fa'
 
-rule:
+rule mash_distances:
   input: mash_sketches
   output: mash
   shell:
@@ -319,7 +328,7 @@ rule:
   shell:
     'wget -O {output} "http://www.moseslab.csb.utoronto.ca/sgrp/sgrp_Sc_SNPs.txt"'
 
-rule:
+rule download_vcf:
   output: vcf
   shell:
     'wget -O {output} "http://www.moseslab.csb.utoronto.ca/sgrp/data/SGRP2-cerevisiae-freebayes-snps-Q30-GQ30.vcf.gz"'

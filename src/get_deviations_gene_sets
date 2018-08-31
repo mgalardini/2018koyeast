@@ -57,7 +57,7 @@ if __name__ == "__main__":
         v = d.reset_index().set_index('gene').loc[genes]
     else:
         v = d.loc[(slice(None), 'S288C'),].reset_index().set_index('gene').loc[genes]
-    v = v[v['qval'] < 0.01].groupby('gene').count()['qval'].sort_values(ascending=False)
+    v = v[v['qvalue'] < 0.01].groupby('gene').count()['qvalue'].sort_values(ascending=False)
     idx = v.index
     
     f = open(options.population, 'w')
