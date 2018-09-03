@@ -165,18 +165,16 @@ rule orthologs_correlation_conditions:
   shell: 'src/orthologs_correlation_conditions {input} > {output}'
 
 rule gene_correlations_single:
-  input:
-    scores=scores,
-    out=corr
+  input: scores
   output: scorrelations
-  shell: 'src/get_genes_correlations {input.scores} --out {input.out} --single'
+  params: corr
+  shell: 'src/get_genes_correlations {input} --out {params} --single'
 
 rule gene_correlations:
-  input:
-    scores=scores,
-    out=corr
+  input: scores
   output: pcorrelations
-  shell: 'src/get_genes_correlations {input.scores} --out {input.out}'
+  params: corr
+  shell: 'src/get_genes_correlations {input} --out {params}'
 
 rule stratify_genes:
   input: scores
