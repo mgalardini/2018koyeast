@@ -17,9 +17,9 @@ def get_options():
                         help='Population output file')
     
     parser.add_argument('--threshold',
-                        default=10,
-                        type=int,
-                        help='Gene swap count threshold [Default: 10]')
+                        default=0.1,
+                        type=float,
+                        help='Gene swap proportion threshold [Default: 0.1]')
     parser.add_argument('--s288c',
                         action='store_true',
                         default=False,
@@ -33,6 +33,7 @@ if __name__ == "__main__":
     scores = options.scores
     dev = options.deviating
 
+    import itertools
     import numpy as np
     import pandas as pd
 
@@ -54,17 +55,34 @@ if __name__ == "__main__":
                for y in x[:2]}
 
     if not options.s288c:
-        v = d.reset_index().set_index('gene').loc[genes]
+        v = d.reset_index().set_index('gene').loc[genes].reset_index()
     else:
-        v = d.loc[(slice(None), 'S288C'),].reset_index().set_index('gene').loc[genes]
-    v = v[v['qvalue'] < 0.01].groupby('gene').count()['qvalue'].sort_values(ascending=False)
-    idx = v.index
-    
+        v = d.loc[(slice(None), 'S288C'),].reset_index().set_index('gene').loc[genes].reset_index()
+
+    r = (d[d['qvalue'] < 0.01].groupby(['strain1', 'strain2', 'gene'])[
+	 'phenotype1'].sum() / d.groupby(['strain1', 'strain2', 'gene'])[
+	 'phenotype1'].sum()).dropna().reset_index().rename(
+	columns={'strain1': 'strain',
+		 'strain2': 'other',
+		 'phenotype1': 'deviations'})
+    s = (d[d['qvalue'] < 0.01].groupby(['strain2', 'strain1', 'gene'])[
+	 'phenotype2'].sum() / d.groupby(['strain2', 'strain1', 'gene'])[
+	 'phenotype2'].sum()).dropna().reset_index().rename(
+	columns={'strain2': 'strain',
+		 'strain1': 'other',
+		 'phenotype2': 'deviations'})
+    t = pd.concat([r, s], sort=False).set_index(['strain', 'other', 'gene'])
+    t = t.reindex([(x, y, g)
+		  for x, y, in itertools.product(strains, strains)
+		  if x != y
+		  for g in genes],
+		  fill_value=0)['deviations'].groupby('gene').mean()
+
     f = open(options.population, 'w')
     for gene in genes:
         f.write('%s\n' % gene)
     f.close()
     f = open(options.study, 'w')
-    for gene in v[v >= options.threshold].dropna().index:
+    for gene in t[t >= options.threshold].dropna().index:
         f.write('%s\n' % gene)
     f.close()
