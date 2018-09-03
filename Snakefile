@@ -32,6 +32,7 @@ scores = pj(out, 'ko_scores.txt')
 scoresref = pj(out, 'ko_scores_s288c.txt')
 scoresrep = pj(out, 'ko_scores_rep.txt')
 sizes = pj(out, 'sizes.txt')
+fitness = pj(out, 'fitness.txt')
 dups = pj(out, 'duplicates_correlation.tsv')
 orth = pj(out, 'orthologs_correlation.tsv')
 cond = pj(out, 'orthologs_conditions_correlation.tsv')
@@ -112,7 +113,7 @@ vmutfunc = pj(out, 'mutfunc_snps.tsv')
 
 rule all:
   input:
-    scores, scoresref, scoresrep, sizes,
+    scores, scoresref, scoresrep, fitness,
     dups, scorrelations, pcorrelations,
     orth, cond, genes,
     sdups, sorth, scond,
@@ -142,6 +143,11 @@ rule fix_rawsizes:
   input: rawsizes, conditions, todrop
   output: sizes
   shell: 'src/fix_raw {input} > {output}'
+
+rule fitness:
+  input: sizes
+  output: fitness
+  shell: 'src/get_general_fitness {input} -r S288C -s Y55 YPS UWOP > {output}'
 
 rule duplicates_correlation:
   input: scores

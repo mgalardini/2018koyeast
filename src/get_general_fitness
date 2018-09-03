@@ -1,0 +1,84 @@
+#!/usr/bin/env python
+'''Compute the overall fitness of each genetic background'''
+
+import os
+import sys
+import numpy as np
+import pandas as pd
+
+
+def get_options():
+    import argparse
+
+    description = 'Compute overall fitness of each strain'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('sizes',
+                        help='Normalized colony sizes file')
+    parser.add_argument('-r',
+                        '--reference',
+                        default='S288C',
+                        help='Reference strain to compare against')
+    parser.add_argument('-s',
+                        '--strain',
+                        nargs='*',
+                        required=True,
+                        help='Strains to compare to reference')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    ifile = options.sizes
+    reference = options.reference
+    cstrains = sorted(options.strain)
+
+    strains = sorted(cstrains + [reference])
+
+    m = pd.read_table(ifile)
+    m = m.set_index(['plate', 'row', 'column']).sort_index()
+    m = m[m['background'].isin(strains)]
+
+    mm = m.groupby(['condition', 'replica', 'batch', 'background']).median()
+
+    mc = mm.groupby(['condition',
+                     'replica',
+                     'batch'])['normalized'].count()
+
+    conds = mc[mc == len(strains)].index
+
+    mm = mm.reset_index().set_index(['condition',
+                                     'replica',
+                                     'batch']).loc[conds].reset_index().set_index(['condition',
+                                                                                   'replica',
+                                                                                   'batch',
+                                                                                   'background'])
+
+    res = []
+    for x, y, z in {(x, y, z)
+                    for x, y, z, w in mm.index}:
+        ref = mm.loc[(x, y, z, reference), 'normalized']
+        for strain in cstrains:
+            t = mm.loc[(x, y, z, strain), 'normalized'] / ref
+            res.append([x, y, z, '-'.join([x, y, z]), strain, t])
+        res.append([x, y, z,
+                    '-'.join([x, y, z]),
+                    reference, 1.0])
+    r = pd.DataFrame(res,
+                     columns=['condition',
+                              'replica',
+                              'batch',
+                              'cstr',
+                              'strain',
+                              'v'])
+
+    r[r['strain'] != reference][['condition',
+                                 'replica',
+                                 'batch',
+                                 'strain',
+                                 'v']].rename(columns={'v':
+                                                       'relative-fitness'}).to_csv(sys.stdout,
+                                                                                   sep='\t',
+                                                                                   index=False)
