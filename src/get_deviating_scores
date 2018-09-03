@@ -80,7 +80,7 @@ def get_null(m):
     a2 = b2.loc[mdx]['score']
     a1.name = 'batch1'
     a2.name = 'batch2/3'
-    v1 = (a1 + a2)
+    v1 = -abs(a1 + a2)
     v2 = abs(a1 - a2)
     v1.name = 'sum'
     v2.name = 'sub'
@@ -95,7 +95,7 @@ def get_deviating_scores(m, s1, s2, x, y, z):
     a1.name = 'scores1'
     a2 = m[s2]
     a2.name = 'scores2'
-    v1 = (a1 + a2)
+    v1 = -abs(a1 + a2)
     v2 = abs(a1 - a2)
     v1.name = 'sum'
     v2.name = 'sub'
@@ -108,10 +108,10 @@ def get_deviating_scores(m, s1, s2, x, y, z):
                          index=w.index).to_frame())
     w = w.join(v1.to_frame()).join(v2.to_frame())
     w = w.join(m[['phenotype1', 'phenotype2']])
-    w['var'] = np.interp((a1 + a2),
+    w['var'] = np.interp(-abs(a1 + a2),
                          x,
                          y)
-    w['mean'] = np.interp((a1 + a2),
+    w['mean'] = np.interp(-abs(a1 + a2),
                      x,
                      z)
     w['pval'] = [1 - stats.norm.cdf(x, loc=z, scale=y)
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     m = pd.read_table(scores, index_col=[0, 1, 2])
     m['phenotype'] = m['qvalue'] < 0.05
     b = True
-    for s1, s2 in itertools.combinations({x[0] for x in m.index}, 2):
+    for s1, s2 in itertools.combinations(sorted({x[0] for x in m.index}), 2):
         s = s1 + '/' + s2
         m1 = m.loc[s1]['score']
         m1 = m1[~m1.index.duplicated()].dropna()
