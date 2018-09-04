@@ -47,7 +47,9 @@ if __name__ == "__main__":
         else:
             genes = genes.intersection(gs)
     genes = sorted(genes)
-
+    pgenes = m.loc[(slice(None), genes),].groupby('gene')['phenotype'].max()
+    pgenes = set(pgenes[pgenes == True].index)
+    
     d = pd.read_table(dev, index_col=[4, 5, 1, 0])
 
     strains = {y
@@ -75,11 +77,11 @@ if __name__ == "__main__":
     t = t.reindex([(x, y, g)
 		  for x, y, in itertools.product(strains, strains)
 		  if x != y
-		  for g in genes],
+		  for g in pgenes],
 		  fill_value=0)['deviations'].groupby('gene').mean()
 
     f = open(options.population, 'w')
-    for gene in genes:
+    for gene in pgenes:
         f.write('%s\n' % gene)
     f.close()
     f = open(options.study, 'w')
