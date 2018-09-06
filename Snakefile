@@ -22,6 +22,8 @@ rawsizes = pj(data, 'corrected.tsv.gz')
 todrop = pj(data, 'S288C_to_drop.txt')
 conditions = pj(data, 'conditions.tsv')
 uniprot2gene = pj(data, 'uniprot2orf.tsv')
+essential = pj(data, 'essentials.csv')
+reactome_input = pj(data, 'reactomePathwaysScerevisiae.tsv')
 
 # variables extracted from data file
 strains = sorted({x.decode().rstrip().split('\t')[1]
@@ -59,6 +61,8 @@ string = pj(out, 'string.combined.800.txt')
 biogrid = pj(out, 'biogrid.all.txt')
 biogrid_physical = pj(out, 'biogrid.physical.txt')
 biogrid_genetic = pj(out, 'biogrid.genetic.txt')
+go_sets = pj(out, 'go.txt')
+reactome = pj(out, 'reactome.txt')
 # go terms enrichemnt
 study = pj(out, 'deviating_study.txt')
 population = pj(out, 'deviating_population.txt')
@@ -122,6 +126,7 @@ rule all:
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
+    go_sets, reactome,
     mash
 
 rule fix_raw:
@@ -247,6 +252,16 @@ rule:
 rule:
   output: biogrid_physical
   shell: 'wget --quiet --output-document - https://downloads.thebiogrid.org/Download/BioGRID/Latest-Release/BIOGRID-MV-Physical-LATEST.tab2.zip | gunzip | src/biogrid2txt > {output}'
+
+rule:
+  input: gaf
+  output: go_sets
+  shell: 'cat {input} | src/gaf2txt > {output}'
+
+rule:
+  input: reactome_input
+  output: reactome
+  shell: 'cat {input} | src/reactome2txt > {output}'
 
 rule deviating_scores:
   input: scores, scoresrep
