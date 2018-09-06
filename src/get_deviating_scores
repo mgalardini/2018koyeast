@@ -107,7 +107,8 @@ def get_deviating_scores(m, s1, s2, x, y, z):
                          name='strain2',
                          index=w.index).to_frame())
     w = w.join(v1.to_frame()).join(v2.to_frame())
-    w = w.join(m[['phenotype1', 'phenotype2']])
+    w = w.join(m[['phenotype1', 'phenotype2',
+                  'scores-qvalue1', 'scores-qvalue2']])
     w['var'] = np.interp(-abs(a1 + a2),
                          x,
                          y)
@@ -145,9 +146,18 @@ if __name__ == "__main__":
         p2 = p2[~p2.index.duplicated()].dropna()
         p1.name = 'phenotype1'
         p2.name = 'phenotype2'
+        q1 = m.loc[s1]['qvalue']
+        q1 = q1[~q1.index.duplicated()].dropna()
+        q2 = m.loc[s2]['qvalue']
+        q2 = q2[~q2.index.duplicated()].dropna()
+        q1.name = 'scores-qvalue1'
+        q2.name = 'scores-qvalue2'
         d = m1.to_frame().join(m2.to_frame(), how='inner').dropna()
         d = d.join(p1.to_frame(),
                    how='inner').dropna().join(p2.to_frame(),
+                                              how='inner').dropna()
+        d = d.join(q1.to_frame(),
+                   how='inner').dropna().join(q2.to_frame(),
                                               how='inner').dropna()
         w = get_deviating_scores(d, s1, s2, x, y, z)
         # add a new qvalue columns to get rid of "deviations" that are not relevant
