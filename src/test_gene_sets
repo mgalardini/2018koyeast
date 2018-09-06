@@ -1,0 +1,278 @@
+#!/usr/bin/env python
+
+
+import sys
+import random
+import warnings
+import numpy as np
+import pandas as pd
+from scipy import stats
+import statsmodels.api as sm
+
+
+def load_gene_sets(go,
+                   cpx,
+                   path,
+                   module,
+                   min_size=2,
+                   max_size=100):
+    d = {}
+    for f, name in zip([go, cpx,
+                        path, module],
+                       ['gos', 'complexes',
+                        'pathways', 'modules']):
+        d[name] = {x.rstrip().split()[0]: set(x.rstrip().split()[1].split(','))
+                   for x in open(f)
+                   if min_size <= len(set(x.rstrip().split()[1].split(','))) <= max_size}
+    
+    return d
+
+
+def cohens(x, y):
+    r"""Effect size metric through Cohen's *d* metric
+
+    :param x: first vector
+    :param y: second vector
+    :return: absolute effect size value
+
+    The Cohen's effect size *d* is defined as the difference
+    between two means divided by a standard deviation of the data.
+
+    .. math::
+
+        d = \frac{\bar{x}_1 - \bar{x}_2}{s}
+
+    For two independent samples, the *pooled standard deviation* is used
+    instead, which is defined as:
+
+    .. math::
+
+        s = \sqrt{  \frac{(n_1-1)s_1^2 + (n_2-1)s_2^2}{n_1+n_2-2} }
+
+
+    A Cohen's *d* is frequently used in estimating sample sizes for
+    statistical testing: a lower *d* value indicates the necessity of
+    larger sample sizes, and vice versa.
+
+    .. note:: we return the absolute value
+
+    :references: https://en.wikipedia.org/wiki/Effect_size
+
+    """
+    x = np.array(x)
+    y = np.array(y)
+
+    Nx = len(x) - 1.  # note the dot to cast to float
+    Ny = len(y) - 1.
+    # mean difference:
+    md = np.abs(x.mean() - y.mean())
+    # here, we want same as in R that is unbiased variance
+    # so we use ddof = 1
+    xv = x.var(ddof=1)
+    yv = y.var(ddof=1)
+    csd = Nx * xv + Ny * yv
+    csd /= Nx + Ny  # make sure this is float
+    csd = np.sqrt(csd)
+
+    return md / csd
+
+
+def do_tests(m, genes, sgenes,
+             min_size=2,
+             max_size=100,
+             shuffle=False):
+    sgenes = sorted(genes.intersection(sgenes))
+    ngenes = sorted(genes.difference(sgenes))
+    
+    if len(sgenes) > max_size or len(sgenes) < min_size:
+        return (len(sgenes), len(ngenes),
+                np.nan, np.nan, np.nan, np.nan,
+                np.nan, np.nan, np.nan)
+    
+    if shuffle:
+        agenes = sgenes + ngenes
+        random.shuffle(agenes)
+        sgenes = agenes[:len(sgenes)]
+        ngenes = agenes[len(sgenes):]
+    
+    v1 = m.loc[sgenes, 'score']
+    v2 = m.loc[ngenes, 'score']
+    
+    kstat, kpval = stats.ks_2samp(v1, v2)
+    tstat, tpval = stats.ttest_ind(v1, v2)
+    astat, _, apval = stats.anderson_ksamp([v1, v2],
+                                           midrank=True)
+    cohen = cohens(v1, v2)
+    
+    return (v1.shape[0], v2.shape[0],
+            kstat, kpval, 
+            tstat, tpval,
+            astat, apval, cohen)
+
+    
+def get_options():
+    import argparse
+
+    description = 'Run tests on gene sets derived from DBs'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('scores',
+                        help='KO scores')
+    parser.add_argument('go',
+                        help='GO terms')
+    parser.add_argument('cpx',
+                        help='Complexes')
+    parser.add_argument('pathways',
+                        help='Reactome pathways')
+    parser.add_argument('modules',
+                        help='Kegg modules')
+
+    parser.add_argument('--min-size',
+                        type=int,
+                        default=2,
+                        help='Minimum gene sets size [default: %(default)d]')
+    parser.add_argument('--max-size',
+                        type=int,
+                        default=100,
+                        help='Maximum gene sets size [default: %(default)d]')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    scores = options.scores
+    gfile = options.go
+    cfile = options.cpx
+    pfile = options.pathways
+    mfile = options.modules
+    min_size = options.min_size
+    max_size = options.max_size
+
+    d = load_gene_sets(gfile, cfile,
+                       pfile, mfile,
+                       min_size=min_size,
+                       max_size=max_size)
+    all_sets = {(n, c): v
+                for n, values in d.items()
+                for c, v in values.items()}
+
+    m = pd.read_table(scores,
+                      index_col=[0, 2, 1]).sort_index()
+    m['phenotype'] = m['qvalue'] < 0.05
+    genes = None
+    for s in {x[0] for x in m.index}:
+        gs = {x[0] for x in m.loc[s].index}
+        if genes is None:
+            genes = gs
+        else:
+            genes = genes.intersection(gs)
+    genes = sorted(genes)
+    m = m.loc[(slice(None), genes),]
+
+    res = []
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+    
+        m = m.reset_index().set_index(['condition', 'gene']).sort_index()
+        for c in {x[0] for x in m.index}:
+            mc = m.loc[c]
+            mc = mc.dropna()
+            genes = {x for x in mc.index}
+            for (cat, name), sgenes in all_sets.items():
+                (n1, n2,
+                 kstat, kpval, 
+                 tstat, tpval,
+                 astat, apval, cohen) = do_tests(mc, genes, sgenes,
+                                                 min_size=min_size,
+                                                 max_size=max_size)
+                if np.isnan(kpval) and np.isnan(tpval) and np.isnan(apval):
+                    continue
+                res.append((c, 'all', False,
+                            cat, name, n1, n2,
+                            'ks', kstat, kpval, cohen))
+                res.append((c, 'all', False,
+                            cat, name, n1, n2,
+                            't', tstat, tpval, cohen))
+                res.append((c, 'all', False,
+                            cat, name, n1, n2,
+                            'anderson', astat, apval, cohen))
+                (n1, n2,
+                 kstat, kpval, 
+                 tstat, tpval,
+                 astat, apval, cohen) = do_tests(mc, genes, sgenes,
+                                                 shuffle=True,
+                                                 min_size=min_size,
+                                                 max_size=max_size)
+                res.append((c, 'all', True,
+                            cat, name, n1, n2,
+                            'ks', kstat, kpval, cohen))
+                res.append((c, 'all', True,
+                            cat, name, n1, n2,
+                            't', tstat, tpval, cohen))
+                res.append((c, 'all', True,
+                            cat, name, n1, n2,
+                            'anderson', astat, apval, cohen))
+    
+        m = m.reset_index().set_index(['strain', 'condition', 'gene']).sort_index()
+        for s in {x[0] for x in m.index}:
+            ms = m.loc[s]
+            for c in {x[0] for x in ms.index}:
+                mc = ms.loc[c]
+                mc = mc.dropna()
+                genes = {x for x in mc.index}
+                for (cat, name), sgenes in all_sets.items():
+                    (n1, n2,
+                     kstat, kpval, 
+                     tstat, tpval,
+                     astat, apval, cohen) = do_tests(mc, genes, sgenes,
+                                                     min_size=min_size,
+                                                     max_size=max_size)
+                    if np.isnan(kpval) and np.isnan(tpval) and np.isnan(apval):
+                        continue
+                    res.append((c, s, False,
+                                cat, name, n1, n2,
+                                'ks', kstat, kpval, cohen))
+                    res.append((c, s, False,
+                                cat, name, n1, n2,
+                                't', tstat, tpval, cohen))
+                    res.append((c, s, False,
+                                cat, name, n1, n2,
+                                'anderson', astat, apval, cohen))
+                    (n1, n2,
+                     kstat, kpval, 
+                     tstat, tpval,
+                     astat, apval, cohen) = do_tests(mc, genes, sgenes,
+                                                     shuffle=True,
+                                                     min_size=min_size,
+                                                     max_size=max_size)
+                    res.append((c, s, True,
+                                cat, name, n1, n2,
+                                'ks', kstat, kpval, cohen))
+                    res.append((c, s, True,
+                                cat, name, n1, n2,
+                                't', tstat, tpval, cohen))
+                    res.append((c, s, True,
+                                cat, name, n1, n2,
+                                'anderson', astat, apval, cohen))
+    
+    k = pd.DataFrame(res,
+                     columns=['condition',
+                              'strain', 'shuffled', 'category',
+                              'name', 'size', 'nsize',
+                              'test', 'stat', 'pval',
+                              'cohend']).dropna()
+
+    k = k.reset_index().set_index(['condition',
+                                   'strain',
+                                   'test']).sort_index()
+    for c, s, t in {tuple(x) for x in k.index}:
+        k.loc[(c, s, t), 'qval'] = sm.stats.multipletests(k.loc[(c, s, t), 'pval'],
+                                                          method='fdr_bh')[1]
+    k = k.reset_index().set_index(['condition', 'strain', 'test',
+                                   'category', 'name']).sort_index().reset_index()
+
+    k.to_csv(sys.stdout,
+	     index=False,
+             sep='\t')

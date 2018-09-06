@@ -78,6 +78,8 @@ scond = [pj('out', 'orthologs_condition_correlation_%s.tsv' % x)
 # mash distances
 mash_sketches = pj(out, 'genomes.msh')
 mash = pj(out, 'genome_distances.tsv')
+# gene sets
+gene_sets_tests = pj(out, 'gene_sets_tests.tsv')
 
 #####################
 # deprecated analysis
@@ -127,7 +129,7 @@ rule all:
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
     go_sets, reactome,
-    mash
+    mash, gene_sets_tests
 
 rule fix_raw:
   input: raw, conditions, todrop
@@ -262,6 +264,18 @@ rule:
   input: reactome_input
   output: reactome
   shell: 'cat {input} | src/reactome2txt > {output}'
+
+rule gene_sets:
+  input:
+    scores,
+    go_sets,
+    cpx,
+    reactome,
+    kegg
+  output:
+    gene_sets_tests
+  shell:
+    'src/test_gene_sets {input} > {output}'
 
 rule deviating_scores:
   input: scores, scoresrep
