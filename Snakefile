@@ -80,6 +80,11 @@ mash_sketches = pj(out, 'genomes.msh')
 mash = pj(out, 'genome_distances.tsv')
 # gene sets
 gene_sets_tests = pj(out, 'gene_sets_tests.tsv')
+# variants data
+vcf = pj(variants, 'SGRP2-cerevisiae-freebayes-snps-Q30-GQ30.vcf.gz')
+cvcf = pj(out, 'SGRP2-corrected.vcf.gz')
+nvcf = pj(out, 'SGRP2-norm.vcf.gz')
+vvcf = pj(out, 'SGRP2-variants.tsv')
 
 #####################
 # deprecated analysis
@@ -100,7 +105,6 @@ gomodules = [pj(corr, '%s.go.tsv' % (s))
              if s != 'S288C']
 # variants data
 snps = pj(variants, 'sgrp_Sc_SNPs.txt')
-vcf = pj(variants, 'SGRP2-cerevisiae-freebayes-snps-Q30-GQ30.vcf.gz')
 indels1 = pj(variants, 'indels', 'Sc_Ind_cr.txt')
 indels2 = pj(variants, 'indels', 'Sc_Ind_ncr.txt')
 parsed_snps = pj(out, 'sgrp_snps.tsv')
@@ -129,7 +133,8 @@ rule all:
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
     go_sets, reactome,
-    mash, gene_sets_tests
+    mash, gene_sets_tests,
+    vvcf
 
 rule fix_raw:
   input: raw, conditions, todrop
@@ -365,6 +370,22 @@ rule download_vcf:
   output: vcf
   shell:
     'wget -O {output} "http://www.moseslab.csb.utoronto.ca/sgrp/data/SGRP2-cerevisiae-freebayes-snps-Q30-GQ30.vcf.gz"'
+
+rule:
+  input: vcf
+  output: cvcf
+  shell:
+    'zcat {input} | src/correct_vcf | gzip > {output}'
+
+rule:
+  input: cvcf
+  output: nvcf
+  shell:  'bcftools norm -m - {input} | gzip > {output}'
+
+rule annotate_vcf:
+  input: nvcf
+  output: vvcf
+  shell: 'src/annotate_vcf.R {input} {output}'
 
 rule:
   params: variants
