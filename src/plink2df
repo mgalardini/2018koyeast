@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+'''Transform plink's output in a matrix'''
+
+
+import sys
+import argparse
+import pandas as pd
+from limix.io import read_plink
+
+
+def get_options():
+    description = 'Transform plink\'s output into a matrix'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('plink',
+                        help='Plink\'s prefix')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    (bim, fam, bed) = read_plink(options.plink,
+                                 verbose=True)
+    bim = bim.to_dict()
+    geno = pd.DataFrame(bed.compute()).astype(float).T
+    geno.index = fam.iid
+    geno.columns = ['%s_%d:%s/%s' % (bim['chrom'][x],
+                                     bim['pos'][x],
+                                     bim['a0'][x],
+                                     bim['a1'][x])
+                    for x in geno.columns]
+
+    geno.to_csv(sys.stdout, sep='\t')

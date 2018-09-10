@@ -85,6 +85,8 @@ vcf = pj(variants, 'SGRP2-cerevisiae-freebayes-snps-Q30-GQ30.vcf.gz')
 cvcf = pj(out, 'SGRP2-corrected.vcf.gz')
 nvcf = pj(out, 'SGRP2-norm.vcf.gz')
 vvcf = pj(out, 'SGRP2-variants.tsv')
+pvcf = pj(out, 'SGRP2-plink.bed')
+tvcf = pj(out, 'SGRP2.tsv')
 
 #####################
 # deprecated analysis
@@ -134,7 +136,7 @@ rule all:
     biogrid, biogrid_physical, biogrid_genetic,
     go_sets, reactome,
     mash, gene_sets_tests,
-    vvcf
+    vvcf, tvcf
 
 rule fix_raw:
   input: raw, conditions, todrop
@@ -386,6 +388,18 @@ rule annotate_vcf:
   input: nvcf
   output: vvcf
   shell: 'src/annotate_vcf.R {input} {output}'
+
+rule:
+  input: nvcf
+  output: pvcf
+  params: pj(out, os.path.split(pvcf)[1].split('.')[0])
+  shell: 'plink --vcf {input} --out {params} --allow-extra-chr --make-bed'
+
+rule matrix_vcf:
+  input: pvcf
+  output: tvcf
+  params: pj(out, os.path.split(pvcf)[1].split('.')[0])
+  shell: 'src/plink2df {params} > {output}' 
 
 rule:
   params: variants
