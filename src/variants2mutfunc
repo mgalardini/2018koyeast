@@ -57,6 +57,7 @@ if __name__ == "__main__":
             s = pd.read_table(f)
             s['gene'] = [conv.get(x, x) for x in s['uniprot_id']]
             s = s.set_index(['gene', 'uniprot_pos', 'aa_wt', 'aa_mt']).sort_index()
+            s = s[~s.index.duplicated(keep='first')]
 
             m.loc[m.index.intersection(s.index),
                   name] = s.loc[m.index.intersection(s.index), 'ddG']
