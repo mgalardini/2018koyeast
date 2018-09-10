@@ -93,41 +93,6 @@ foldx1 = pj(mutfunc, 'exp.tsv.gz')
 foldx2 = pj(mutfunc, 'mod.tsv.gz')
 mvcf = pj(out, 'SGRP2-mutfunc.tsv')
 
-#####################
-# deprecated analysis
-# COP/LLR scores and modules
-cop = [pj(corr, '%s.cop.tsv' % x)
-       for x in strains]
-llr = [pj(corr, '%s.llr.tsv' % x)
-       for x in strains]
-llr_genes = pj(corr, 'unique_genes.txt')
-modules = [pj(corr, '%s_%s.modules.tsv' % (s1, s2))
-           for s1,s2 in itertools.combinations(strains, 2)
-           if s1 == 'S288C'
-           or s2 == 'S288C']
-# go terms enrichment for conserved modules
-mpopulation = pj(corr, 'population.txt')
-gomodules = [pj(corr, '%s.go.tsv' % (s))
-             for s in strains
-             if s != 'S288C']
-# variants data
-snps = pj(variants, 'sgrp_Sc_SNPs.txt')
-indels1 = pj(variants, 'indels', 'Sc_Ind_cr.txt')
-indels2 = pj(variants, 'indels', 'Sc_Ind_ncr.txt')
-parsed_snps = pj(out, 'sgrp_snps.tsv')
-# mutfunc
-sift = pj(mutfunc, 'sift.tsv.gz')
-foldx1 = pj(mutfunc, 'exp.tsv.gz')
-foldx2 = pj(mutfunc, 'mod.tsv.gz')
-# parsed mutfunc
-vsift = pj(out, 'sift_snps.tsv')
-vfoldx1 = pj(out, 'exp_snps.tsv')
-vfoldx2 = pj(out, 'mod_snps.tsv')
-# mutfunc for each strain
-vmutfunc = pj(out, 'mutfunc_snps.tsv')
-# end of deprecation
-####################
-
 rule all:
   input:
     scores, scoresref, scoresrep, fitness,
@@ -304,58 +269,6 @@ rule deviating_genes_go_enrichment:
   output: goe
   shell: 'find_enrichment.py --obo {input} --method fdr_bh | grep "^GO" > {output}'
 
-rule:
-  input:
-    corr=pj(corr, 'S288C.tsv'),
-    target=pj(corr, '{strain}.tsv'),
-    cpx=biogrid_physical
-  output: pj(corr, '{strain}.cop.tsv')
-  shell:
-    'src/get_cop_score {input.corr} {input.target} {input.cpx} --fraction 0.01 > {output}'
-
-rule:
-  input:
-    corr=pj(corr, '{strain}.tsv'),
-    cop=pj(corr, '{strain}.cop.tsv')
-  output: pj(corr, '{strain}.llr.tsv')
-  shell:
-    'src/get_llr_score {input} > {output}'
-
-rule:
-  input: llr
-  output: llr_genes
-  shell: 'src/unique_interactions {input} > {output}'
-
-rule:
-  input:
-    llr1=pj(corr, '{strain1}.llr.tsv'),
-    llr2=pj(corr, '{strain2}.llr.tsv'),
-    llr_genes=llr_genes
-  output: pj(corr, '{strain1}_{strain2}.mergescore.tsv')
-  shell: 'src/merge_score {input.llr1} {input.llr2} --subset {input.llr_genes} > {output}'
-
-rule:
-  input:
-    scores=pj(corr, '{strain1}_{strain2}.mergescore.tsv'),
-    llr1=pj(corr, '{strain1}.llr.tsv'),
-    llr2=pj(corr, '{strain2}.llr.tsv')
-  output: pj(corr, '{strain1}_{strain2}.modules.tsv')
-  shell: 'src/merge_strains {input.scores} {input.llr1} {input.llr2} > {output}'
-
-rule:
-  input: llr_genes
-  output: mpopulation
-  shell: 'awk \'{{print $1"\\n"$2}}\' {input} | sort | uniq > {output}'
-
-rule:
-  input:
-    modules=pj(corr, 'S288C_{strain}.modules.tsv'),
-    obo=obo,
-    pop=mpopulation,
-    gaf=gaf
-  output: pj(corr, '{strain}.go.tsv')
-  shell: 'src/modules2go {input} {output} --minimum 6 --maximum 12 --spacer 100'
-
 rule mash_sketches:
   input: assemblies
   output: mash_sketches
@@ -367,11 +280,6 @@ rule mash_distances:
   output: mash
   shell:
     'mash dist {input} {input} | src/square_mash > {output}'
-
-rule:
-  output: snps
-  shell:
-    'wget -O {output} "http://www.moseslab.csb.utoronto.ca/sgrp/sgrp_Sc_SNPs.txt"'
 
 rule download_vcf:
   output: vcf
@@ -415,51 +323,3 @@ rule matrix_vcf:
   output: tvcf
   params: pj(out, os.path.split(pvcf)[1].split('.')[0])
   shell: 'src/plink2df {params} > {output}' 
-
-rule:
-  params: variants
-  output: indels1
-  shell:
-    'wget -O {params}/indels.tar.gz "http://www.moseslab.csb.utoronto.ca/sgrp/sgrp_indels_apr2011.tar.gz" && cd {params} && tar -xvf indels.tar.gz && rm indels.tar.gz'
-
-rule:
-  input:
-    snps=snps,
-    conversion=uniprot2gene
-  output: parsed_snps
-  shell: 'src/parse_sgrp_snps {input.snps} --conversion {input.conversion} > {output}'
-
-rule:
-  input:
-    parsed_snps,
-    sift
-  output: vsift
-  shell:
-    'src/snps2mutfunc {input} --strain YPS606 Y55 UWOPS87_2421 > {output}'
-
-rule:
-  input:
-    parsed_snps,
-    foldx1
-  output: vfoldx1
-  shell:
-    'src/snps2mutfunc {input} --strain YPS606 Y55 UWOPS87_2421 --foldx > {output}'
-
-rule:
-  input:
-    parsed_snps,
-    foldx2
-  output: vfoldx2
-  shell:
-    'src/snps2mutfunc {input} --strain YPS606 Y55 UWOPS87_2421 --foldx > {output}'
-
-rule:
-  input:
-    snps=parsed_snps,
-    sift=vsift,
-    exp=vfoldx1,
-    mod=vfoldx2,
-    conversion=uniprot2gene
-  output: vmutfunc
-  shell:
-    'src/combine_mutfunc {input.snps} {input.sift} {input.exp} {input.mod} Y55 YPS606 UWOPS87_2421 --conversion {input.conversion} > {output}'
