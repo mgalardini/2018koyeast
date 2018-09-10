@@ -87,6 +87,11 @@ nvcf = pj(out, 'SGRP2-norm.vcf.gz')
 vvcf = pj(out, 'SGRP2-variants.tsv')
 pvcf = pj(out, 'SGRP2-plink.bed')
 tvcf = pj(out, 'SGRP2.tsv')
+# mutfunc
+sift = pj(mutfunc, 'sift.tsv.gz')
+foldx1 = pj(mutfunc, 'exp.tsv.gz')
+foldx2 = pj(mutfunc, 'mod.tsv.gz')
+mvcf = pj(out, 'SGRP2-mutfunc.tsv')
 
 #####################
 # deprecated analysis
@@ -136,7 +141,7 @@ rule all:
     biogrid, biogrid_physical, biogrid_genetic,
     go_sets, reactome,
     mash, gene_sets_tests,
-    vvcf, tvcf
+    mvcf, tvcf
 
 rule fix_raw:
   input: raw, conditions, todrop
@@ -384,10 +389,20 @@ rule:
   output: nvcf
   shell:  'bcftools norm -m - {input} | gzip > {output}'
 
-rule annotate_vcf:
+rule:
   input: nvcf
   output: vvcf
   shell: 'src/annotate_vcf.R {input} {output}'
+
+rule annotate_vcf:
+  input:
+    vcf=vvcf,
+    sift=sift,
+    exp=foldx1,
+    mod=foldx2,
+    conv=uniprot2gene
+  output: mvcf
+  shell: 'src/variants2mutfunc {input.vcf} {input.sift} {input.exp} {input.mod} --conversion {input.conv} > mvcf'
 
 rule:
   input: nvcf

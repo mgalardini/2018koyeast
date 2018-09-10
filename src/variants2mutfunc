@@ -1,0 +1,64 @@
+#!/usr/bin/env python
+
+
+import sys
+import argparse
+import pandas as pd
+
+
+def get_options():
+    description = ''
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('variants',
+                        help='Annotated variants')
+    parser.add_argument('sift',
+                        help='Sift scores')
+    parser.add_argument('exp',
+                        help='FoldX experimental scores')
+    parser.add_argument('mod',
+                        help='FoldX model scores')
+
+    parser.add_argument('--conversion',
+                        default=None,
+                        help='Uniprot to SGD conversion')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    m = pd.read_table(options.variants)
+    m = m.set_index(['GENEID', 'PROTEINLOC', 'REFAA', 'VARAA']).sort_index()
+    m['snpID'] = ['%s_%d:%s/%s' % (x, y, w, z)
+                  for x, y, w, z in m[['seqnames',
+                                       'start',
+                                       'REF',
+                                       'ALT']].values]
+
+    conv= {}
+    if options.conversion is not None:
+        conv = {x.rstrip().split()[0]: x.rstrip().split()[1]
+                for x in open(options.conversion)}
+
+    for f, name in zip([options.sift,
+                        options.exp,
+                        options.mod],
+                       ['sift', 'exp', 'mod']):
+        if name == 'sift':
+            s = pd.read_table(f)
+            s['gene'] = [conv.get(x, x) for x in s['acc']]
+            s = s.set_index(['gene', 'pos', 'ref', 'alt']).sort_index()
+
+            m.loc[m.index.intersection(s.index),
+                  name] = s.loc[m.index.intersection(s.index), 'score']
+        else:
+            s = pd.read_table(f)
+            s['gene'] = [conv.get(x, x) for x in s['uniprot_id']]
+            s = s.set_index(['gene', 'uniprot_pos', 'aa_wt', 'aa_mt']).sort_index()
+
+            m.loc[m.index.intersection(s.index),
+                  name] = s.loc[m.index.intersection(s.index), 'ddG']
+
+    m.to_csv(sys.stdout, sep='\t')
