@@ -28,6 +28,8 @@ if __name__ == "__main__":
         s = l.rstrip().split()
         g = conv.get(s[0], s[0])
         for c in s[1].split(';'):
+            if c == '':
+                continue
             cpx[c] = cpx.get(c, set())
             cpx[c].add(g)
 
