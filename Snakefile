@@ -310,7 +310,7 @@ rule annotate_vcf:
     mod=foldx2,
     conv=uniprot2gene
   output: mvcf
-  shell: 'src/variants2mutfunc {input.vcf} {input.sift} {input.exp} {input.mod} --conversion {input.conv} > mvcf'
+  shell: 'src/variants2mutfunc {input.vcf} {input.sift} {input.exp} {input.mod} --conversion {input.conv} > {output}'
 
 rule:
   input: nvcf
