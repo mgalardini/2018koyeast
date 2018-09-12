@@ -175,11 +175,48 @@ if __name__ == "__main__":
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
     
-        m = m.reset_index().set_index(['condition', 'gene']).sort_index()
-        for c in {x[0] for x in m.index}:
-            mc = m.loc[c]
-            mc = mc.dropna()
-            genes = {x for x in mc.index}
+        m = m.reset_index().set_index(['gene', 'condition']).sort_index()
+        mc = m.dropna()
+        genes = {x[0] for x in mc.index}
+        for (cat, name), sgenes in all_sets.items():
+            (n1, n2,
+             kstat, kpval, 
+             tstat, tpval,
+             astat, apval, cohen) = do_tests(mc, genes, sgenes,
+                                             min_size=min_size,
+                                             max_size=max_size)
+            if np.isnan(kpval) and np.isnan(tpval) and np.isnan(apval):
+                continue
+            res.append(('all', False,
+                        cat, name, n1, n2,
+                        'ks', kstat, kpval, cohen))
+            res.append(('all', False,
+                        cat, name, n1, n2,
+                        't', tstat, tpval, cohen))
+            res.append(('all', False,
+                        cat, name, n1, n2,
+                        'anderson', astat, apval, cohen))
+            (n1, n2,
+             kstat, kpval, 
+             tstat, tpval,
+             astat, apval, cohen) = do_tests(mc, genes, sgenes,
+                                             shuffle=True,
+                                             min_size=min_size,
+                                             max_size=max_size)
+            res.append(('all', True,
+                        cat, name, n1, n2,
+                        'ks', kstat, kpval, cohen))
+            res.append(('all', True,
+                        cat, name, n1, n2,
+                        't', tstat, tpval, cohen))
+            res.append(('all', True,
+                        cat, name, n1, n2,
+                        'anderson', astat, apval, cohen))
+    
+        m = m.reset_index().set_index(['strain', 'gene', 'condition']).sort_index()
+        for s in {x[0] for x in m.index}:
+            mc = m.loc[s].dropna()
+            genes = {x[0] for x in mc.index}
             for (cat, name), sgenes in all_sets.items():
                 (n1, n2,
                  kstat, kpval, 
@@ -189,13 +226,13 @@ if __name__ == "__main__":
                                                  max_size=max_size)
                 if np.isnan(kpval) and np.isnan(tpval) and np.isnan(apval):
                     continue
-                res.append((c, 'all', False,
+                res.append((s, False,
                             cat, name, n1, n2,
                             'ks', kstat, kpval, cohen))
-                res.append((c, 'all', False,
+                res.append((s, False,
                             cat, name, n1, n2,
                             't', tstat, tpval, cohen))
-                res.append((c, 'all', False,
+                res.append((s, False,
                             cat, name, n1, n2,
                             'anderson', astat, apval, cohen))
                 (n1, n2,
@@ -205,72 +242,28 @@ if __name__ == "__main__":
                                                  shuffle=True,
                                                  min_size=min_size,
                                                  max_size=max_size)
-                res.append((c, 'all', True,
+                res.append((s, True,
                             cat, name, n1, n2,
                             'ks', kstat, kpval, cohen))
-                res.append((c, 'all', True,
+                res.append((s, True,
                             cat, name, n1, n2,
                             't', tstat, tpval, cohen))
-                res.append((c, 'all', True,
+                res.append((s, True,
                             cat, name, n1, n2,
                             'anderson', astat, apval, cohen))
     
-        m = m.reset_index().set_index(['strain', 'condition', 'gene']).sort_index()
-        for s in {x[0] for x in m.index}:
-            ms = m.loc[s]
-            for c in {x[0] for x in ms.index}:
-                mc = ms.loc[c]
-                mc = mc.dropna()
-                genes = {x for x in mc.index}
-                for (cat, name), sgenes in all_sets.items():
-                    (n1, n2,
-                     kstat, kpval, 
-                     tstat, tpval,
-                     astat, apval, cohen) = do_tests(mc, genes, sgenes,
-                                                     min_size=min_size,
-                                                     max_size=max_size)
-                    if np.isnan(kpval) and np.isnan(tpval) and np.isnan(apval):
-                        continue
-                    res.append((c, s, False,
-                                cat, name, n1, n2,
-                                'ks', kstat, kpval, cohen))
-                    res.append((c, s, False,
-                                cat, name, n1, n2,
-                                't', tstat, tpval, cohen))
-                    res.append((c, s, False,
-                                cat, name, n1, n2,
-                                'anderson', astat, apval, cohen))
-                    (n1, n2,
-                     kstat, kpval, 
-                     tstat, tpval,
-                     astat, apval, cohen) = do_tests(mc, genes, sgenes,
-                                                     shuffle=True,
-                                                     min_size=min_size,
-                                                     max_size=max_size)
-                    res.append((c, s, True,
-                                cat, name, n1, n2,
-                                'ks', kstat, kpval, cohen))
-                    res.append((c, s, True,
-                                cat, name, n1, n2,
-                                't', tstat, tpval, cohen))
-                    res.append((c, s, True,
-                                cat, name, n1, n2,
-                                'anderson', astat, apval, cohen))
-    
     k = pd.DataFrame(res,
-                     columns=['condition',
-                              'strain', 'shuffled', 'category',
+                     columns=['strain', 'shuffled', 'category',
                               'name', 'size', 'nsize',
                               'test', 'stat', 'pval',
                               'cohend']).dropna()
 
-    k = k.reset_index().set_index(['condition',
-                                   'strain',
+    k = k.reset_index().set_index(['strain',
                                    'test']).sort_index()
-    for c, s, t in {tuple(x) for x in k.index}:
-        k.loc[(c, s, t), 'qval'] = sm.stats.multipletests(k.loc[(c, s, t), 'pval'],
-                                                          method='fdr_bh')[1]
-    k = k.reset_index().set_index(['condition', 'strain', 'test',
+    for s, t in {tuple(x) for x in k.index}:
+        k.loc[(s, t), 'qval'] = sm.stats.multipletests(k.loc[(s, t), 'pval'],
+                                                       method='fdr_bh')[1]
+    k = k.reset_index().set_index(['strain', 'test',
                                    'category', 'name']).sort_index().reset_index()
 
     k.to_csv(sys.stdout,
