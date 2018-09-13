@@ -1,0 +1,127 @@
+#!/usr/bin/env python
+
+
+import os
+import argparse
+import itertools
+import numpy as np
+import pandas as pd
+from sklearn import metrics
+
+
+def evaluate(m, cpx, rounds=10):
+    for i in range(rounds):
+        X = np.concatenate([m.loc[[(x[0], x[1]) for x in cpx]].values,
+                            m.sample(len(cpx)).values])
+        fpr, tpr, t1 = metrics.roc_curve(np.concatenate([np.ones(len(cpx)),
+                                                         np.zeros(len(cpx))]),
+                                         X)
+        prec, rec, t2 = metrics.precision_recall_curve(np.concatenate([np.ones(len(cpx)),
+                                                                       np.zeros(len(cpx))]),
+                                                       X)
+        yield fpr, tpr, t1, metrics.auc(fpr, tpr), prec, rec, t2, metrics.auc(rec, prec)
+
+
+def strain_evaluate(scores, interactions,
+                    pairs=False, paired=None,
+                    rounds=10):
+    if paired is None:
+        m = pd.read_table(scores, index_col=0)
+        m = m.mask(np.triu(np.ones(m.shape)).astype(bool)).stack()
+    else:
+        m = pd.read_table(scores, index_col=[0, 1])[paired]
+    idx = set(m.index)
+    if not pairs:
+        cpx = set()
+        for l in open(interactions):
+            name, genes = l.rstrip().split()
+            for g1, g2 in itertools.combinations(genes.split(','), 2):
+                if (g1, g2) not in idx:
+                    if (g2, g1) not in idx:
+                        continue
+                    else:
+                        cpx.add((g2, g1))
+                else:
+                    cpx.add((g1, g2))
+    else:
+        cpx = set()
+        for l in open(interactions):
+            g1, g2 = l.rstrip().split()
+            if (g1, g2) not in idx:
+                if (g2, g1) not in idx:
+                    continue
+                else:
+                    cpx.add((g2, g1))
+            else:
+                cpx.add((g1, g2))
+    for x in evaluate(m, cpx, rounds=rounds):
+        yield x
+
+
+def get_options():
+    description = 'Run a benchmark on gene-gene correlations'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('indir',
+                        help='Gene-gene correlations directory')
+    parser.add_argument('cpx',
+                        help='Complexes file')
+    parser.add_argument('kegg',
+                        help='Kegg modules file')
+    parser.add_argument('biogrid',
+                        help='Biogrid file')
+    
+    parser.add_argument('--strain',
+                        action='append',
+                        default=[],
+                        help='Strains to consider')
+    parser.add_argument('--rounds',
+                        type=int,
+                        default=10,
+                        help='Permutations [default: %(default)d]')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    cdir = options.indir
+    cfile = options.cpx
+    mfile = options.kegg
+    bfile = options.biogrid
+    strains = options.strain
+    rounds = options.rounds
+
+    if len(strains) == 0:
+        strains = ['S288C', 'Y55',
+                   'UWOP', 'YPS']
+    
+    correlations = [os.path.join(cdir, strain) + '.tsv'
+                    for strain in strains]
+
+    print('\t'.join(['strain', 'set',
+                     'test', 'round',
+                     'x', 'y', 'auc']))
+    for cf, name, pair in zip([cfile, mfile, bfile],
+                              ['complexes', 'modules', 'interactions'],
+                              [False, False, True]):
+        for s, f in zip(strains, correlations):
+            i = 0
+            for fpr, tpr, t1, auc1, prec, rec, t2, auc2 in strain_evaluate(f,
+                                                                           cf,
+                                                                           pairs=pair,
+                                                                           rounds=rounds):
+                for x, y, in zip(fpr, tpr):
+                    print('\t'.join([str(x) for x in [s,
+                                                      name,
+                                                      'roc',
+                                                      i,
+                                                      x, y, auc1]]))
+                for x, y, in zip(rec, prec):
+                    print('\t'.join([str(x) for x in [s,
+                                                      name,
+                                                      'precision-recall',
+                                                      i,
+                                                      x, y, auc2]]))
+                i += 1

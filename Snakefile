@@ -44,6 +44,8 @@ scorrelations = [pj(corr, '%s.tsv' % x)
                  for x in strains]
 pcorrelations = [pj(corr, '%s_%s.tsv' % (s1, s2))
                  for s1,s2 in itertools.combinations(strains, 2)]
+# benchmarks
+benchmarks = pj(out, 'benchmarks.tsv')
 # deviating s-scores
 deviations = pj(out, 'deviating.tsv')
 # ko data (Hillenmeyer 2008)
@@ -97,6 +99,7 @@ rule all:
   input:
     scores, scoresref, scoresrep, fitness,
     dups, scorrelations, pcorrelations,
+    benchmarks,
     orth, cond, genes,
     sdups, sorth, scond,
     kolog, koz, kopval,
@@ -159,6 +162,16 @@ rule gene_correlations:
   output: pcorrelations
   params: corr
   shell: 'src/get_genes_correlations {input} --out {params}'
+
+rule benchmarking:
+  input:
+    a=scorrelations,
+    b=cpx,
+    c=kegg,
+    d=biogrid_physical
+  output: benchmarks
+  params: corr
+  shell: 'src/benchmark_correlations {params} {input.b} {input.c} {input.d} > {output}'
 
 rule stratify_genes:
   input: scores
