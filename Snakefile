@@ -54,6 +54,9 @@ deviations = pj(out, 'deviating.tsv')
 kolog = pj(ko, 'lscores.tsv')
 koz = pj(ko, 'zscores.tsv')
 kopval = pj(ko, 'pvalues.tsv')
+kolog1 = pj(ko, 'lscores_het.tsv')
+koz1 = pj(ko, 'zscores_het.tsv')
+kopval1 = pj(ko, 'pvalues_het.tsv')
 # SGD data
 features = pj(out, 'SGD_features.tab')
 gaf = pj(out, 'SGD_slim.tsv')
@@ -106,6 +109,7 @@ rule all:
     orth, cond, genes,
     sdups, sorth, scond,
     kolog, koz, kopval,
+    kolog1, koz1, kopval1,
     features, deviations,
     gaf, obo, goe,
     cpx, kegg, string,
@@ -218,6 +222,18 @@ rule:
 rule:
   output: kopval
   shell: 'wget -O {output} "http://chemogenomics.stanford.edu/supplements/global/download/data/hom.z_tdist_pval_nm.pub"'
+
+rule:
+  output: kolog1
+  shell: 'wget -O {output} "http://chemogenomics.stanford.edu/supplements/global/download/data/het.ratio_result_nm.pub"'
+
+rule:
+  output: koz1
+  shell: 'wget -O {output} "http://chemogenomics.stanford.edu/supplements/global/download/data/het.z_result_nm.pub"'
+
+rule:
+  output: kopval1
+  shell: 'wget -O {output} "http://chemogenomics.stanford.edu/supplements/global/download/data/het.z_tdist_pval_nm.pub"'
 
 rule:
   output: features
