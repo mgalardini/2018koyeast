@@ -39,7 +39,9 @@ dups = pj(out, 'duplicates_correlation.tsv')
 orth = pj(out, 'orthologs_correlation.tsv')
 cond = pj(out, 'orthologs_conditions_correlation.tsv')
 genes = pj(out, 'stratified_genes.tsv')
-# gene-gene correaltions
+# conditions correlations
+ccorrelations = pj(out, 'conditions_correlations.tsv')
+# gene-gene correlations
 scorrelations = [pj(corr, '%s.tsv' % x)
                  for x in strains]
 pcorrelations = [pj(corr, '%s_%s.tsv' % (s1, s2))
@@ -99,6 +101,7 @@ rule all:
   input:
     scores, scoresref, scoresrep, fitness,
     dups, scorrelations, pcorrelations,
+    ccorrelations,
     benchmarks,
     orth, cond, genes,
     sdups, sorth, scond,
@@ -140,6 +143,11 @@ rule duplicates_correlation:
   input: scores
   output: dups
   shell: 'src/duplicates_correlation {input} > {output}'
+
+rule conditions_correlation:
+  input: scores
+  output: ccorrelations
+  shell: 'src/conditions_correlation {input} > {output}'
 
 rule orthologs_correlation:
   input: scores
