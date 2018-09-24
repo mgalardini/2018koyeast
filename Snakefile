@@ -33,6 +33,7 @@ strains = sorted({x.decode().rstrip().split('\t')[1]
 scores = pj(out, 'ko_scores.txt')
 scoresref = pj(out, 'ko_scores_s288c.txt')
 scoresrep = pj(out, 'ko_scores_rep.txt')
+sorted_conditions = pj(out, 'sorted_conditions.txt')
 sizes = pj(out, 'sizes.txt')
 fitness = pj(out, 'fitness.txt')
 dups = pj(out, 'duplicates_correlation.tsv')
@@ -104,7 +105,7 @@ rule all:
   input:
     scores, scoresref, scoresrep, fitness,
     dups, scorrelations, pcorrelations,
-    ccorrelations,
+    ccorrelations, sorted_conditions,
     benchmarks,
     orth, cond, genes,
     sdups, sorth, scond,
@@ -137,6 +138,12 @@ rule fix_rawsizes:
   input: rawsizes, conditions, todrop
   output: sizes
   shell: 'src/fix_raw {input} > {output}'
+
+rule sort_conditions:
+  input: scores
+  output: sorted_conditions
+  params: 'S288C'
+  shell: 'src/sort_conditions {input} --strain {params} > {output}'
 
 rule fitness:
   input: sizes
