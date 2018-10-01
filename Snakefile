@@ -20,6 +20,7 @@ rawref = pj(data, 'ko_scores_s288c.tsv.gz')
 rawrep = pj(data, 'ko_scores_rep.tsv.gz')
 rawsizes = pj(data, 'corrected.tsv.gz')
 todrop = pj(data, 'S288C_to_drop.txt')
+ctodrop = pj(data, 'conditions_to_drop.txt')
 conditions = pj(data, 'conditions.tsv')
 uniprot2gene = pj(data, 'uniprot2orf.tsv')
 essential = pj(data, 'essentials.csv')
@@ -34,6 +35,7 @@ scores = pj(out, 'ko_scores.txt')
 scoresref = pj(out, 'ko_scores_s288c.txt')
 scoresrep = pj(out, 'ko_scores_rep.txt')
 sorted_conditions = pj(out, 'sorted_conditions.txt')
+sorted_conditions_linkage = pj(out, 'sorted_conditions.linkage.gz')
 sizes = pj(out, 'sizes.txt')
 fitness = pj(out, 'fitness.txt')
 dups = pj(out, 'duplicates_correlation.tsv')
@@ -106,6 +108,7 @@ rule all:
     scores, scoresref, scoresrep, fitness,
     dups, scorrelations, pcorrelations,
     ccorrelations, sorted_conditions,
+    sorted_conditions_linkage,
     benchmarks,
     orth, cond, genes,
     sdups, sorth, scond,
@@ -120,30 +123,32 @@ rule all:
     mvcf, tvcf
 
 rule fix_raw:
-  input: raw, conditions, todrop
+  input: raw, conditions, todrop, ctodrop
   output: scores
   shell: 'src/fix_raw {input} > {output}'
 
 rule fix_rawref:
-  input: rawref, conditions, todrop
+  input: rawref, conditions, todrop, ctodrop
   output: scoresref
   shell: 'src/fix_raw {input} > {output}'
 
 rule fix_rawrep:
-  input: rawrep, conditions, todrop
+  input: rawrep, conditions, todrop, ctodrop
   output: scoresrep
   shell: 'src/fix_raw {input} > {output}'
 
 rule fix_rawsizes:
-  input: rawsizes, conditions, todrop
+  input: rawsizes, conditions, todrop, ctodrop
   output: sizes
   shell: 'src/fix_raw {input} > {output}'
 
 rule sort_conditions:
   input: scores
-  output: sorted_conditions
+  output:
+    sc1=sorted_conditions,
+    sc2=sorted_conditions_linkage
   params: 'S288C'
-  shell: 'src/sort_conditions {input} --strain {params} > {output}'
+  shell: 'src/sort_conditions {input} --strain {params} --save-linkage {output.sc2} > {output.sc1}'
 
 rule fitness:
   input: sizes

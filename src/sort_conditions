@@ -19,6 +19,9 @@ def get_options():
     parser.add_argument('--strain',
                         default='S288C',
                         help='Strain to focus on [default %(default)s]')
+    parser.add_argument('--save-linkage',
+                        default=None,
+                        help='File to save the linkage matrix into [default: no save]')
 
     return parser.parse_args()
 
@@ -44,6 +47,8 @@ if __name__ == "__main__":
     m = m.copy(deep=True)
     m[np.isnan(m)] = 0.
     cl = fst.linkage(m.T, method='average')
+    if options.save_linkage is not None:
+        np.savetxt(options.save_linkage, cl)
     cd = cluster.hierarchy.dendrogram(cl, no_plot=True,
                                       color_threshold=-np.inf)
     co = m.columns[cd['leaves']]

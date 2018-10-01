@@ -12,6 +12,8 @@ def get_options():
                         help='Conditions table')
     parser.add_argument('drop',
                         help='Strains to drop')
+    parser.add_argument('cdrop',
+                        help='Conditions to drop')
 
     return parser.parse_args()
 
@@ -48,8 +50,12 @@ if __name__ == "__main__":
                                    x.split('-')[1].lower())) +
             ' (' + x.split('-')[0].upper() + ')'
          for x in set(m['condition'])}
+    c = {x: y.replace('  ', ' ')
+         for x, y in c.items()}
 
     m['condition'] = [c[x] for x in m['condition']]
+    m = m[~m['condition'].isin([x.rstrip()
+                                for x in open(options.cdrop)])]
 
     m.set_index(['strain', 'condition'], inplace=True)
     m.sort_index(inplace=True)
