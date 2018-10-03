@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+
+
+def get_options():
+    import argparse
+
+    description = 'Fix conditions names and remove strains'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('scores')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import sys
+    import pandas as pd
+
+    m = pd.read_table(options.scores)
+    m = m[m['subset'] == 'liti']
+    m = m.drop(columns=['subset'])
+
+    c = {x: x.replace('  ', ' ')
+         for x in m['condition'].unique()}
+    m['condition'] = [c[x] for x in m['condition']]
+
+    m.set_index(['strain', 'condition'], inplace=True)
+    m.sort_index(inplace=True)
+    m.reset_index(inplace=True)
+    
+    m.to_csv(sys.stdout,
+             sep='\t',
+             index=False)

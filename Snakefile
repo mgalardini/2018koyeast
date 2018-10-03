@@ -22,6 +22,7 @@ rawsizes = pj(data, 'corrected.tsv.gz')
 todrop = pj(data, 'S288C_to_drop.txt')
 ctodrop = pj(data, 'conditions_to_drop.txt')
 conditions = pj(data, 'conditions.tsv')
+rawnatural = pj(data, 'yeasts_natural.tsv')
 uniprot2gene = pj(data, 'uniprot2orf.tsv')
 essential = pj(data, 'essentials.csv')
 reactome_input = pj(data, 'reactomePathwaysScerevisiae.tsv')
@@ -38,6 +39,7 @@ sorted_conditions = pj(out, 'sorted_conditions.txt')
 sorted_conditions_linkage = pj(out, 'sorted_conditions.linkage.gz')
 sizes = pj(out, 'sizes.txt')
 fitness = pj(out, 'fitness.txt')
+natural = pj(out, 'yeasts_scores.txt')
 dups = pj(out, 'duplicates_correlation.tsv')
 orth = pj(out, 'orthologs_correlation.tsv')
 cond = pj(out, 'orthologs_conditions_correlation.tsv')
@@ -106,6 +108,7 @@ mvcf = pj(out, 'SGRP2-mutfunc.tsv')
 rule all:
   input:
     scores, scoresref, scoresrep, fitness,
+    natural,
     dups, scorrelations, pcorrelations,
     ccorrelations, sorted_conditions,
     sorted_conditions_linkage,
@@ -154,6 +157,11 @@ rule fitness:
   input: sizes
   output: fitness
   shell: 'src/get_general_fitness {input} -r S288C -s Y55 YPS UWOP > {output}'
+
+rule fix_natural:
+  input: rawnatural
+  output: natural
+  shell: 'src/fix_raw_natural {input} > {output}'
 
 rule duplicates_correlation:
   input: scores
