@@ -1,9 +1,15 @@
 #!/usr/bin/env python
 
 
-def get_options():
-    import argparse
+import sys
+import argparse
+import numpy as np
+import pandas as pd
+from sklearn.decomposition import PCA
+from sklearn.ensemble import IsolationForest
 
+
+def get_options():
     description = 'Fix conditions names and remove strains'
     parser = argparse.ArgumentParser(description=description)
 
@@ -15,13 +21,31 @@ def get_options():
 if __name__ == "__main__":
     options = get_options()
 
-    import sys
-    import pandas as pd
-
     m = pd.read_table(options.scores)
-    m = m[m['subset'] == 'liti']
-    m = m.drop(columns=['subset'])
+    l = m[m['subset'] == 'liti']
+    wt = m[m['subset'] == 'wt']
 
+    wtp = wt.pivot_table(index=['strain', 'plate', 'row', 'column'],
+                         columns='condition',
+                         values='score')
+    wtc = wtp.copy(deep=True)
+    wtc[np.isnan(wtc)] = 0.
+    pca = PCA().fit(wtc)
+    p = pd.DataFrame(pca.transform(wtc),
+                     index=wtp.index)
+    ifor = IsolationForest(behaviour='new',
+                           contamination=0.33,
+                           random_state=42).fit(p.values[:, :4])
+    o = ifor.predict(p.values[:, :4])
+    wt = wt.set_index(['strain',
+                       'plate',
+                       'row',
+                       'column']
+         ).loc[wtp.index[o == 1]].reset_index()[l.columns]
+
+    m = pd.concat([l, wt])
+    
+    m = m.drop(columns=['subset'])
     c = {x: x.replace('  ', ' ')
          for x in m['condition'].unique()}
     m['condition'] = [c[x] for x in m['condition']]
@@ -29,7 +53,7 @@ if __name__ == "__main__":
     m.set_index(['strain', 'condition'], inplace=True)
     m.sort_index(inplace=True)
     m.reset_index(inplace=True)
-    
+
     m.to_csv(sys.stdout,
              sep='\t',
              index=False)
