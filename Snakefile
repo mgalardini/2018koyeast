@@ -26,6 +26,7 @@ rawnatural = pj(data, 'yeasts_natural.tsv')
 uniprot2gene = pj(data, 'uniprot2orf.tsv')
 essential = pj(data, 'essentials.csv')
 reactome_input = pj(data, 'reactomePathwaysScerevisiae.tsv')
+genome = pj(data, 'reference.fasta')
 
 # variables extracted from data file
 strains = sorted({x.decode().rstrip().split('\t')[1]
@@ -35,11 +36,14 @@ strains = sorted({x.decode().rstrip().split('\t')[1]
 scores = pj(out, 'ko_scores.txt')
 scoresref = pj(out, 'ko_scores_s288c.txt')
 scoresrep = pj(out, 'ko_scores_rep.txt')
+ascores = pj(out, 'ko_scores_annotated.txt')
+wscores = pj(out, 'ko_scores_window.txt')
 sorted_conditions = pj(out, 'sorted_conditions.txt')
 sorted_conditions_linkage = pj(out, 'sorted_conditions.linkage.gz')
 sizes = pj(out, 'sizes.txt')
 fitness = pj(out, 'fitness.txt')
 natural = pj(out, 'yeasts_scores.txt')
+natural_scores = pj(out, 'yeasts_sscores.txt')
 dups = pj(out, 'duplicates_correlation.tsv')
 orth = pj(out, 'orthologs_correlation.tsv')
 cond = pj(out, 'orthologs_conditions_correlation.tsv')
@@ -92,23 +96,30 @@ mash_sketches = pj(out, 'genomes.msh')
 mash = pj(out, 'genome_distances.tsv')
 # gene sets
 gene_sets_tests = pj(out, 'gene_sets_tests.tsv')
-# variants data
-vcf = pj(variants, 'SGRP2-cerevisiae-freebayes-snps-Q30-GQ30.vcf.gz')
-cvcf = pj(out, 'SGRP2-corrected.vcf.gz')
-nvcf = pj(out, 'SGRP2-norm.vcf.gz')
-vvcf = pj(out, 'SGRP2-variants.tsv')
-pvcf = pj(out, 'SGRP2-plink.bed')
-tvcf = pj(out, 'SGRP2.tsv')
-# mutfunc
-sift = pj(mutfunc, 'sift.tsv.gz')
-foldx1 = pj(mutfunc, 'exp.tsv.gz')
-foldx2 = pj(mutfunc, 'mod.tsv.gz')
-mvcf = pj(out, 'SGRP2-mutfunc.tsv')
+
+# variants data - input and output
+vcf = pj(variants, '1011Matrix.gvcf.gz')
+rtab = pj(variants, 'genesMatrix_PresenceAbsence.tab.gz')
+mat = pj(variants, '1011GWASMatrix.tar.gz')
+matbed = pj(variants, '1011GWAS_matrix.bed')
+matvcf = pj(variants, 'plink.vcf')
+tree = pj(variants, '1011_matrix.tree.newick')
+nvcf = pj(out, 'norm.vcf.gz')
+similarity = pj(out, 'natural_similarity.tsv')
+sickness = pj(data, 'sickness.tsv')
+avcf = pj(out, 'augmented.vcf.gz')
+abed = pj(out, 'augmented.bed')
+associations = pj(out, 'associations.tsv')
+aassociations = pj(out, 'associations_annotated.tsv')
+wassociations = pj(out, 'associations_window.tsv')
+sgdbed = pj(out, 'SGD_features.bed')
+sgdsortedbed = pj(out, 'SGD_sorted_features.bed')
+genrichment = pj(out, 'gwas_enrichments.tsv')
 
 rule all:
   input:
     scores, scoresref, scoresrep, fitness,
-    natural,
+    natural, ascores, wscores,
     dups, scorrelations, pcorrelations,
     ccorrelations, sorted_conditions,
     sorted_conditions_linkage,
@@ -123,12 +134,22 @@ rule all:
     biogrid, biogrid_physical, biogrid_genetic,
     go_sets, reactome,
     mash, gene_sets_tests,
-    mvcf, tvcf
+    aassociations, wassociations, genrichment
 
 rule fix_raw:
   input: raw, conditions, todrop, ctodrop
   output: scores
   shell: 'src/fix_raw {input} > {output}'
+
+rule annotate_scores:
+  input: scores, sgdsortedbed
+  output: ascores
+  shell: 'src/annotate_scores {input} > {output}'
+
+rule window_scores:
+  input: genome, ascores
+  output: wscores
+  shell: 'src/ko_windows {input} --window 10000 > {output}'
 
 rule fix_rawref:
   input: rawref, conditions, todrop, ctodrop
@@ -341,42 +362,84 @@ rule mash_distances:
 rule download_vcf:
   output: vcf
   shell:
-    'wget -O {output} "http://www.moseslab.csb.utoronto.ca/sgrp/data/SGRP2-cerevisiae-freebayes-snps-Q30-GQ30.vcf.gz"'
+    'wget -O {output} "http://1002genomes.u-strasbg.fr/files/1011Matrix.gvcf.gz"'
 
-rule:
-  input: vcf
-  output: cvcf
+rule download_rtab:
+  output: rtab
   shell:
-    'zcat {input} | src/correct_vcf | gzip > {output}'
+    'wget -O {output} "http://1002genomes.u-strasbg.fr/files/genesMatrix_PresenceAbsence.tab.gz"'
 
-rule:
-  input: cvcf
+rule download_mat:
+  output: mat
+  shell:
+    'wget -O {output} "http://1002genomes.u-strasbg.fr/files/1011GWASMatrix.tar.gz"'
+
+rule unpack_mat:
+  input: mat
+  output: matbed
+  params: variants
+  shell: 'cd {params} && tar -xvf $(basename {input})'
+
+rule normalize_vcf:
+  input: vcf,
   output: nvcf
-  shell:  'bcftools norm -m - {input} | gzip > {output}'
+  shell:
+    '''bcftools norm {input} -m - | sed 's/^chromosome//g' | bcftools view --min-ac 1 -q 0.05:minor | gzip > {output}'''
 
-rule:
-  input: nvcf
-  output: vvcf
-  shell: 'src/annotate_vcf.R {input} {output}'
+rule mat2vcf:
+  input: matbed
+  output: matvcf
+  params: variants
+  shell: 'cd {params} && plink --bfile $(basename {input} .bed) --recode vcf'
 
-rule annotate_vcf:
-  input:
-    vcf=vvcf,
-    sift=sift,
-    exp=foldx1,
-    mod=foldx2,
-    conv=uniprot2gene
-  output: mvcf
-  shell: 'src/variants2mutfunc {input.vcf} {input.sift} {input.exp} {input.mod} --conversion {input.conv} > {output}'
+rule augment_vcf:
+  input: nvcf, matvcf, rtab, sickness
+  output: avcf
+  shell: 'src/augment_vcf {input} | gzip > {output}'
 
-rule:
-  input: nvcf
-  output: pvcf
-  params: pj(out, os.path.split(pvcf)[1].split('.')[0])
-  shell: 'plink --vcf {input} --out {params} --allow-extra-chr --make-bed'
+rule vcf2bed:
+  input: avcf
+  output: abed
+  params: out
+  shell: 'plink --vcf {input} --maf 0.05 --recode12 --out {params}/$(basename {output} .bed) --allow-extra-chr --list-duplicate-vars suppress-first --make-bed'
 
-rule matrix_vcf:
-  input: pvcf
-  output: tvcf
-  params: pj(out, os.path.split(pvcf)[1].split('.')[0])
-  shell: 'src/plink2df {params} > {output}' 
+rule similarity:
+  input: tree
+  output: similarity
+  shell: 'python src/phylogeny_distance.py --lmm {input} > {output}'
+
+rule get_sscores:
+  input: natural
+  output: natural_scores
+  shell: 'src/get_sscores {input} > {output}'
+
+rule associate:
+  input: abed, natural_scores, similarity
+  output: associations
+  shell: 'src/limix_association {input} > {output}'
+
+rule annotate_associations:
+  input: associations, sgdsortedbed,
+  output: aassociations
+  shell: 'src/annotate_associations {input} > {output}'
+
+rule window_associations:
+  input: genome, ascores, aassociations
+  output: wassociations
+  shell: 'src/gwas_windows {input} --window 10000 > {output}'
+
+rule sgd2bed:
+  input: features
+  output: sgdbed
+  shell: 'src/sgd2bed {input} > {output}'
+
+rule sort_bed:
+  input: sgdbed
+  output: sgdsortedbed
+  shell: 'bedtools sort -i {input} > {output}'
+
+rule gwas_enrichment:
+  input: aassociations, genome, ascores, sgdsortedbed  
+  output: genrichment
+  shell:
+    'src/gwas_enrichments {input} > {output}'

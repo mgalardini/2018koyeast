@@ -1,0 +1,36 @@
+#!/usr/bin/env python
+
+def get_options():
+    import argparse
+
+    description = 'Convert SGD features table into BED'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('sgd',
+                        help='SGD features table')
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    options = get_options()
+    
+    for l in open(options.sgd):
+        s = l.rstrip().split('\t')
+        if len(s) < 11:
+            continue
+        chrom, start, stop = s[8:11]
+        name = s[3]
+        if '' in [chrom, start, stop, name]:
+            continue
+        if int(start) > int(stop):
+            tmp = start
+            start = stop
+            stop = tmp
+        try:
+            int(chrom)
+        except ValueError:
+            continue
+        print('%d\t%d\t%d\t%s' % (int(chrom),
+                                  int(start),
+                                  int(stop),
+                                  name))

@@ -1,0 +1,195 @@
+#!/usr/bin/env python
+
+
+import sys
+import roman
+import argparse
+import numpy as np
+import pandas as pd
+from Bio import SeqIO
+from scipy import stats
+
+
+def get_options():
+    description = 'Check for overlaps between KO and gwas'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('associations',
+                        help='Annotated GWAS results')
+    parser.add_argument('reference',
+                        help='Reference genome nucleotide fasta file')
+    parser.add_argument('scores',
+                        help='Annotated KO score')
+    parser.add_argument('features',
+                        help='Sorted SGD bed file')
+
+    return parser.parse_args()
+
+
+def test_enrichment(m, s, agenes, cond,
+                    strain=None,
+                    nstrains=None,
+                    gpval=1E-6,
+                    kpval=0.05,
+                    ld=1500):
+    x = m[m['pvalue'] < gpval].loc[cond]
+    genes = set(x['index'].dropna().unique())
+    y = x[x['set'] == 'SNP']
+    for c in y.index:
+        pos = y.loc[c]['pos']
+        try:
+            float(pos)
+            pos = [pos,]
+        except TypeError:
+            pass
+        for p in pos:
+            genes = genes.union(set(f[(f['chrom'] == c) &
+                                      (f['pos'] > p-ld) &
+                                      (f['pos'] < p+ld)]['gene'].unique()))
+    genes = genes.intersection(agenes)
+    if strain is not None:
+        try:
+            kgenes = set(s[s['qvalue'] < kpval].loc[(cond, strain),]['gene'].unique())
+        except KeyError:
+            kgenes = set()
+    elif nstrains is not None:
+        ns = s[s['qvalue'] < kpval].loc[cond].reset_index().groupby('gene')['strain'].nunique()
+        kgenes = set(ns[ns >= nstrains].index)
+    else:
+        kgenes = set(s[s['qvalue'] < kpval].loc[cond]['gene'].unique())
+    table = [[len(kgenes.intersection(genes)),
+              len(genes.difference(kgenes))],
+             [len(kgenes.difference(genes)),
+              len(agenes.difference(kgenes).difference(genes))]]
+    stat, pval = stats.fisher_exact(table, alternative='greater')
+    return stat, pval, genes, kgenes
+
+
+def range_enrichment(m, s, agenes,
+                     grange=[-10, -9, -8, -7, -6, -5, -4],
+                     krange=[-8, -4, -2, -1.3010299956639813],
+                     nstrains=range(1, 5),
+                     strains=[],
+                     vset='all'):
+    res = []
+    for gpval in grange:
+        gpval = np.power(10., gpval)
+        for kpval in krange:
+            kpval = np.power(10., kpval)
+            for ns in nstrains:
+                gg = set()
+                kg = set()
+                x = m.groupby(['condition'])['pvalue'].min()
+                for c in x[x <= gpval].reindex(conds).dropna().sort_values().index:
+                    stat, pval, genes, kgenes = test_enrichment(m, s, agenes, c,
+                                                                gpval=gpval,
+                                                                kpval=kpval,
+                                                                nstrains=ns)
+                    gg = genes.union(gg)
+                    kg = kgenes.union(kg)
+                    res.append((c, vset, ns, np.nan, pval,
+                                len(genes), len(kgenes),
+                                kpval, gpval,
+                                len(genes.intersection(kgenes)),
+                                ','.join(genes.intersection(kgenes))))
+                    #print(c, pval, len(genes), len(kgenes))
+                table = [[len(kg.intersection(gg)),
+                          len(gg.difference(kg))],
+                         [len(kg.difference(gg)),
+                          len(agenes.difference(kg).difference(gg))]]
+                stat, pval = stats.fisher_exact(table, alternative='greater')
+                res.append(('all', vset, ns, np.nan, pval,
+                            len(gg), len(kg),
+                            kpval, gpval,
+                            len(gg.intersection(kg)),
+                            ','.join(gg.intersection(kg))))
+            for ns in strains:
+                gg = set()
+                kg = set()
+                x = m.groupby(['condition'])['pvalue'].min()
+                for c in x[x <= gpval].reindex(conds).dropna().sort_values().index:
+                    stat, pval, genes, kgenes = test_enrichment(m, s, agenes, c,
+                                                                gpval=gpval,
+                                                                kpval=kpval,
+                                                                strain=ns)
+                    gg = genes.union(gg)
+                    kg = kgenes.union(kg)
+                    res.append((c, vset, np.nan, ns, pval,
+                                len(genes), len(kgenes),
+                                kpval, gpval,
+                                len(genes.intersection(kgenes)),
+                                ','.join(genes.intersection(kgenes))))
+                    #print(c, pval, len(genes), len(kgenes))
+                table = [[len(kg.intersection(gg)),
+                          len(gg.difference(kg))],
+                         [len(kg.difference(gg)),
+                          len(agenes.difference(kg).difference(gg))]]
+                stat, pval = stats.fisher_exact(table, alternative='greater')
+                res.append(('all', vset, np.nan, ns, pval,
+                            len(gg), len(kg),
+                            kpval, gpval,
+                            len(gg.intersection(kg)),
+                            ','.join(gg.intersection(kg))))
+    r = pd.DataFrame(res,
+                     columns=['condition',
+                              'set',
+                              'nstrains',
+                              'strain',
+                              'pvalue',
+                              'ggenes', 'kgenes', 'kpval', 'gpval',
+                              'nintersection', 'intersection'])
+    return r
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    ifile = options.associations
+    sfile = options.reference
+    kfile = options.scores
+    ffile = options.features
+
+    f = pd.read_table(ffile,
+                      header=None)
+    f.columns = ['chrom', 'start', 'stop', 'gene']
+    f['pos'] = (f['start'] + f['stop']) / 2
+
+    d = {}
+    for s in SeqIO.parse(sfile, 'fasta'):
+        try:
+            seq = roman.fromRoman(s.id.replace('chr', ''))
+            d[seq] = len(s)
+        except:
+            pass
+
+    m = pd.read_table(ifile).set_index(['condition',
+                                        'chrom']).sort_index()
+
+    s = pd.read_table(kfile, index_col=[0, 2, 1])
+    agenes = None
+    for st in {x[0] for x in s.index}:
+        gs = {x[0] for x in s.loc[st].index}
+        if agenes is None:
+            agenes = gs
+        else:
+            agenes = agenes.intersection(gs)
+    s = pd.read_table(kfile).set_index('gene'
+            ).loc[agenes].reset_index().set_index([
+            'condition',
+            'strain', 'chrom']).sort_index()
+
+    agenes = agenes.intersection(f['gene'].unique())
+
+    conds = sorted({x[0] for x in m.index}.intersection({x[0] for x in s.index}))
+
+    strains = ['S288C', 'Y55',
+               'UWOP', 'YPS']
+
+    r1 = range_enrichment(m, s, agenes, vset='all', strains=strains)
+    r1.to_csv(sys.stdout, sep='\t', index=False)
+    r2 = range_enrichment(m[m['set'] == 'SNP'], s, agenes, vset='snp', strains=strains)
+    r2.to_csv(sys.stdout, sep='\t', index=False, header=False)
+    r3 = range_enrichment(m[m['set'] == 'sickness'], s, agenes, vset='sickness', strains=strains)
+    r3.to_csv(sys.stdout, sep='\t', index=False, header=False)
+    r4 = range_enrichment(m[m['set'] != 'sickness'], s, agenes, vset='nosickness', strains=strains)
+    r4.to_csv(sys.stdout, sep='\t', index=False, header=False)

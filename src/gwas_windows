@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+
+
+import sys
+import roman
+import argparse
+import numpy as np
+import pandas as pd
+from Bio import SeqIO
+
+
+def get_options():
+    description = 'Apply a sliding window approach to the GWAS results'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('reference',
+                        help='Reference genome nucleotide fasta file')
+    parser.add_argument('scores',
+                        help='Annotated KO score')
+    parser.add_argument('associations',
+                        help='Annotated GWAS results')
+
+    parser.add_argument('--window',
+                        type=float,
+                        default=10000,
+                        help='Sliding window size [default %(default)d]')
+    
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    sfile = options.reference
+    kfile = options.scores
+    gfile = options.associations
+    w = options.window
+
+    d = {}
+    for s in SeqIO.parse(sfile, 'fasta'):
+        try:
+            seq = roman.fromRoman(s.id.replace('chr', ''))
+            d[seq] = len(s)
+        except:
+            pass
+
+    s = pd.read_table(kfile, index_col=[0, 2, 1])
+    agenes = None
+    for st in {x[0] for x in s.index}:
+        gs = {x[0] for x in s.loc[st].index}
+        if agenes is None:
+            agenes = gs
+        else:
+            agenes = agenes.intersection(gs)
+
+    a = pd.read_table(gfile)
+    a = pd.concat([a[a['set'] == 'SNP'],
+                   a[(a['set'] != 'SNP') & (a['index'].isin(agenes))]])
+    a = a.set_index(['condition', 'set', 'chrom']).sort_index()
+
+    print('condition\tset\tchrom\tminp\tmaxp\tpvalue')
+    for cond, vset in {(x, y) for x, y, _ in a.index}:
+        m = a.loc[(cond, vset),]
+        for chrom in sorted(d):
+            clen = d[chrom]
+            try:
+                mc = m.loc[chrom]
+            except KeyError:
+                continue
+            if len(mc.shape) < 2:
+                mc = mc.to_frame().T
+            for p in np.arange(0, clen, options.window):
+                minp = p
+                if p + w > clen:
+                    maxp = clen
+                else:
+                    maxp = p + w
+                df = mc[(mc['pos'] >= minp) & (mc['pos'] <= maxp)]
+                if df.shape[0] == 0:
+                    pval = np.nan
+                else:
+                    pval = df['pvalue'].min()
+                print('\t'.join([str(x) for x in (cond,
+                                                  vset,
+                                                  chrom,
+                                                  minp,
+                                                  maxp,
+                                                  pval)]))

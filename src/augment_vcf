@@ -1,0 +1,84 @@
+#!/usr/bin/env python
+
+
+import argparse
+import gzip
+import pandas as pd
+
+
+def get_options():
+    description = ('Fix the plink generated VCF header '
+                   'and augment it with genes presence/absence '
+                   'and disruption score')
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('vcf',
+                        help='Input VCF')
+    parser.add_argument('chr17',
+                        help='Input fake chromosome17')
+    parser.add_argument('pangenome',
+                        help='Input pangenome matrix')
+    parser.add_argument('sickness',
+                        help='Input gene sickness matrix')
+
+    parser.add_argument('--threshold',
+                        type=float,
+                        default=0.9,
+                        help='Gene sickness threshold [default: 0.9]')
+    parser.add_argument('--sickness-only',
+                        action='store_true',
+                        default=False,
+                        help='Only use gene sickness')
+    
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    i = 1
+    for l in gzip.open(options.vcf, 'r'):
+        l = l.decode()
+        if l.startswith('#') and not l.startswith('#CHROM'):
+            print(l.rstrip())
+            continue
+        if l.startswith('#CHROM'):
+            strains = l.rstrip().split('\t')[9:]
+            print(l.rstrip())
+            continue
+        if options.sickness_only:
+            continue
+        s = l.rstrip().split('\t')
+        s[2] = 'rs%d' % i
+        i += 1
+        print('\t'.join(s))
+
+    for l in open(options.chr17):
+        if l.startswith('17'):
+            print(l.rstrip())
+
+    p = pd.read_table(options.pangenome, index_col=0).T
+    s = pd.read_table(options.sickness, index_col=0)
+    s[s >= options.threshold] = 1
+    s[s < options.threshold] = 0
+    
+    if not options.sickness_only:
+        chrom = 18
+        p = p[strains]
+        for i, (gene, values) in enumerate(p.iterrows()):
+            print('\t'.join([str(chrom),
+                             '%d00' % (i+1),
+                             'PA%s' % gene,
+                             '1', '2', '.', '.',
+                             'PR', 'GT'] + [str(int(x)) if str(x) != 'nan'
+                                            else '.' for x in values]))
+    
+    chrom = 19
+    s = s[strains]
+    for i, (gene, values) in enumerate(s.iterrows()):
+        print('\t'.join([str(chrom),
+                         '%d00' % (i+1),
+                         'SC%s' % gene,
+                         '1', '2', '.', '.',
+                         'PR', 'GT'] + [str(int(x)) if str(x) != 'nan'
+                                        else '.' for x in values]))
