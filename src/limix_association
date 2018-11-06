@@ -5,36 +5,35 @@ import sys
 import argparse
 import numpy as np
 import pandas as pd
-from limix.io import read_plink
-from limix.qtl import qtl_test_lmm
+import limix
+import xarray as xr
 
 
 def get_options():
-    description = ''
+    description = ""
     parser = argparse.ArgumentParser(description=description)
 
-    parser.add_argument('plink',
-                        help='Plink files prefix')
-    parser.add_argument('phenotypes',
-                        help='Phenotypes file')
-    parser.add_argument('kinship',
-                        help='Kinship matrix file')
+    parser.add_argument("plink", help="Plink files prefix")
+    parser.add_argument("phenotypes", help="Phenotypes file")
+    parser.add_argument("kinship", help="Kinship matrix file")
 
-    parser.add_argument('--restrict',
+    parser.add_argument("--restrict",
                         default=None,
-                        help='Only use the strains contained in this file')
-    
+                        help="Only use the strains contained in this file")
+
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     options = get_options()
 
-    (bim, fam, bed) = read_plink(options.plink,
-                                 verbose=True)
-    bim = bim.to_dict()
+    (bim, fam, bed) = limix.io.plink.read(options.plink, verbose=False)
     geno = pd.DataFrame(bed.compute()).astype(float).T
-    geno.index = fam.iid
+    geno = xr.DataArray(geno, dims=["sample", "candidate"])
+    geno["sample"] = ("sample", fam.iid)
+    geno["snp"] = ("candidate", bim["snp"])
+    geno["chrom"] = ("candidate", bim["chrom"])
+    geno["pos"] = ("candidate", bim["pos"])
 
     pheno = pd.read_table(options.phenotypes, index_col=0)
     pheno = pheno[pheno.dtypes[pheno.dtypes == float].index]
@@ -42,36 +41,44 @@ if __name__ == "__main__":
 
     sim = pd.read_table(options.kinship, index_col=0)
 
-    idx = pheno.index.intersection(geno.index).intersection(sim.index)
+    idx = pheno.index.intersection(geno.sample).intersection(sim.index)
     if options.restrict is not None:
         idx = idx.intersection({x.rstrip() for x in open(options.restrict)})
     geno = geno.loc[idx]
     sim = sim.loc[idx, idx]
     pheno = pheno.loc[idx]
 
-    lmm = qtl_test_lmm(snps=geno.values,
-                       pheno=pheno.values,
-                       K=sim.values,
-                       covs=None,
-                       test='lrt')
-    pval = pd.DataFrame(lmm.getPv(),
-                        index=pheno.columns,
-                        columns=geno.columns).stack().reset_index()
-    pval.columns = ['condition', 'snpIDX', 'pvalue']
-    pval['snp'] = [bim['snp'].get(x, np.nan) for x in pval['snpIDX']]
-    pval['chrom'] = [bim['chrom'].get(x, np.nan) for x in pval['snpIDX']]
-    pval['pos'] = [bim['pos'].get(x, np.nan) for x in pval['snpIDX']]
-    pval = pval[['condition', 'snp', 'chrom', 'pos', 'pvalue']]
-    pval = pval.set_index(['condition', 'snp', 'chrom', 'pos'])
-    beta = pd.DataFrame(lmm.getBetaSNP(),
-                        index=pheno.columns,
-                        columns=geno.columns).stack().reset_index()
-    beta.columns = ['condition', 'snpIDX', 'beta']
-    beta['snp'] = [bim['snp'].get(x, np.nan) for x in beta['snpIDX']]
-    beta['chrom'] = [bim['chrom'].get(x, np.nan) for x in beta['snpIDX']]
-    beta['pos'] = [bim['pos'].get(x, np.nan) for x in beta['snpIDX']]
-    beta = beta[['condition', 'snp', 'chrom', 'pos', 'beta']]
-    beta = beta.set_index(['condition', 'snp', 'chrom', 'pos'])
+    c = limix.qc.count_missingness(geno)
+    geno = geno.loc[:, c < geno.shape[0]]
+    geno = limix.qc.mean_impute(geno)
 
-    m = pval.join(beta, how='outer').reset_index()
-    m.to_csv(sys.stdout, sep='\t', index=False)
+    b = True
+    for cond in pheno.columns:
+        y = pheno[cond]
+        model = limix.qtl.scan(geno, y, "normal", K=sim, verbose=False)
+    
+        pval = model.variant_pvalues
+        pval.name = 'pvalue'
+        pval = pval.to_frame()
+        pval['snp'] = geno['snp'].values
+        pval['chrom'] = geno['chrom'].values
+        pval['pos'] = geno['pos'].values
+        pval['condition'] = cond
+        pval = pval[['condition', 'snp', 'chrom', 'pos', 'pvalue']]
+        pval = pval.set_index(['condition', 'snp', 'chrom', 'pos'])
+        beta = model.variant_effsizes
+        beta.name = 'beta'
+        beta = beta.to_frame()
+        beta['snp'] = geno['snp'].values
+        beta['chrom'] = geno['chrom'].values
+        beta['pos'] = geno['pos'].values
+        beta['condition'] = cond
+        beta = beta[['condition', 'snp', 'chrom', 'pos', 'beta']]
+        beta = beta.set_index(['condition', 'snp', 'chrom', 'pos'])
+        
+        m = pval.join(beta, how='outer').reset_index()
+        if b:
+            m.to_csv(sys.stdout, sep='\t', index=False)
+            b = False
+        else:
+            m.to_csv(sys.stdout, sep='\t', index=False, header=False)

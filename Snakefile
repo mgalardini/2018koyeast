@@ -38,6 +38,7 @@ scoresref = pj(out, 'ko_scores_s288c.txt')
 scoresrep = pj(out, 'ko_scores_rep.txt')
 ascores = pj(out, 'ko_scores_annotated.txt')
 wscores = pj(out, 'ko_scores_window.txt')
+minsign = pj(out, 'ko_scores_minsignificance.txt')
 sorted_conditions = pj(out, 'sorted_conditions.txt')
 sorted_conditions_linkage = pj(out, 'sorted_conditions.linkage.gz')
 sizes = pj(out, 'sizes.txt')
@@ -55,8 +56,10 @@ scorrelations = [pj(corr, '%s.tsv' % x)
                  for x in strains]
 pcorrelations = [pj(corr, '%s_%s.tsv' % (s1, s2))
                  for s1,s2 in itertools.combinations(strains, 2)]
+s3correlation = pj(corr, 's3.tsv')
 # benchmarks
 benchmarks = pj(out, 'benchmarks.tsv')
+s3benchmarks = pj(out, 'benchmarks_s3.tsv')
 # deviating s-scores
 deviations = pj(out, 'deviating.tsv')
 # ko data (Hillenmeyer 2008)
@@ -119,11 +122,11 @@ genrichment = pj(out, 'gwas_enrichments.tsv')
 rule all:
   input:
     scores, scoresref, scoresrep, fitness,
-    natural, ascores, wscores,
-    dups, scorrelations, pcorrelations,
+    natural, ascores, wscores, minsign,
+    dups, scorrelations, s3correlation, pcorrelations,
     ccorrelations, sorted_conditions,
     sorted_conditions_linkage,
-    benchmarks,
+    benchmarks, s3benchmarks,
     orth, cond, genes,
     sdups, sorth, scond,
     kolog, koz, kopval,
@@ -160,6 +163,11 @@ rule fix_rawrep:
   input: rawrep, conditions, todrop, ctodrop
   output: scoresrep
   shell: 'src/fix_raw {input} > {output}'
+
+rule minimum_significance:
+  input: scores
+  output: minsign
+  shell: 'src/get_minimum_significance {input} > {output}'
 
 rule fix_rawsizes:
   input: rawsizes, conditions, todrop, ctodrop
@@ -216,15 +224,32 @@ rule gene_correlations:
   params: corr
   shell: 'src/get_genes_correlations {input} --out {params}'
 
+rule s3_correlations:
+  input: scores
+  output: s3correlation
+  shell: 'src/get_genes_correlations_strains {input} > {output}'
+
 rule benchmarking:
   input:
     a=scorrelations,
     b=cpx,
     c=kegg,
-    d=biogrid_physical
+    d=biogrid_physical,
+    e=minsign
   output: benchmarks
   params: corr
-  shell: 'src/benchmark_correlations {params} {input.b} {input.c} {input.d} > {output}'
+  shell:
+    'src/benchmark_correlations {params} {input.b} {input.c} {input.d} --significance {input.e} --minimum-significance 1E-2 > {output}'
+
+rule s3_benchmarking:
+  input:
+    a=s3correlation,
+    b=cpx,
+    c=kegg,
+    d=biogrid_physical
+  output: s3benchmarks
+  params: corr
+  shell: 'src/benchmark_correlations {params} {input.b} {input.c} {input.d} --strain s3 > {output}'
 
 rule stratify_genes:
   input: scores

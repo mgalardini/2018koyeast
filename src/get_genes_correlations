@@ -16,6 +16,10 @@ def get_options():
                         action='store_true',
                         default=False,
                         help='Output gene-gene correlations for the single strain [Default: each pair]')
+    parser.add_argument('--spearman',
+                        action='store_true',
+                        default=False,
+                        help='Compute Spearman correlation [Default: Pearson]')
 
     return parser.parse_args()
 
@@ -34,13 +38,18 @@ if __name__ == "__main__":
                                     columns=['strain', 'gene'],
                                     values='score')
 
+    if options.spearman:
+        method = 'spearman'
+    else:
+        method = 'pearson'
+
     if not options.single:
         for s1, s2 in itertools.combinations(sorted({x[0]
                                                      for x in m.columns}),
                                              2):
             sys.stderr.write('%s\t%s\n' % (s1, s2))
             x = m[[s1, s2]]
-            x = x.corr()
+            x = x.corr(method)
             x = x.loc[s1, s2]
             x.to_csv(os.path.join(options.out, '%s_%s.tsv' % (s1, s2)),
                      sep='\t')
@@ -48,7 +57,7 @@ if __name__ == "__main__":
         for s in sorted({x[0] for x in m.columns}):
             sys.stderr.write('%s\n' % s)
             x = m[s]
-            x = x.corr()
+            x = x.corr(method)
             x.to_csv(os.path.join(options.out, '%s.tsv' % s),
                      sep='\t')
 
