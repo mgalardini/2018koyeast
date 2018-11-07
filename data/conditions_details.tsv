@@ -1,10 +1,12 @@
 condition	category	sub-category	carrier	concentration
 2,4-Dichlorophenoxyacetic acid	Chemical	Other	DMSO	3mM
-39ºC	Environmental	Environmental	sc	
+20ºC	Environmental	Environmental	SD media	
+39ºC	Environmental	Environmental	SD media	
+42ºC	Environmental	Environmental	SD media	
 5-FU	Drug	DNA damage	DMSO	500uM
 6-AU	Drug	DNA damage	DMSO	8 mM
 6-AU + 39ºC	Combination	Combination	DMSO	8 mM
-Acetic acid	Environmental	Environmental	x	0.625
+Acetic acid	Environmental	Environmental		0.63%
 Amphotericin B	Drug	Lipid	DMSO	100 uM
 Amphotericin B + anaerobic	Combination	Combination	DMSO	100 uM
 Anaerobic growth	Environmental	Environmental		
@@ -12,19 +14,24 @@ Cadmium chloride	Metal	Metal	water	250 uM
 Caffeine 15mM	Chemical	DNA damage	water	15 mM
 Caffeine 20mM	Chemical	DNA damage	water	20 mM
 Caspofungin	Drug	Cell wall	water	6.5 nM
-Clozapine	Drug	antipsychotic	DMSO	350 uM
+Clioquinol	Chemical	Other	DMSO	45 uM
+Clozapine	Drug	Antipsychotic	DMSO	350 uM
 Cyclohexamide	Chemical	Protein synthesis	water	625 nM
 DMSO 1%	Chemical	Control		1.00%
 Doxorubicin	Drug	DNA damage	water	75 uM
-Glucose 20%	C/N Source	Carbon source		20.00%
-Glycerol 2%	C/N Source	Carbon source		2.00%
-Maltose 2%	C/N Source	Carbon source		2.00%
+Glucose 20%	C/N Source	Carbon source	water	20.00%
+Glycerol 2%	C/N Source	Carbon source	water	2.00%
+Maltose 2%	C/N Source	Carbon source	water	2.00%
 NaCl 0.4M	Chemical	Osmotic		0.4M
 NaCl 0.4M + 39ºC	Combination	Combination		0.4M
 NaCl 0.6M	Chemical	Environmental		0.6M
+NaCl 0.6M + 39ºC	Combination	Combination		0.4M
 NiSO4	Metal	Metal	water	2 mM
 Nitrogen starvation	C/N Source	Environmental	YNB w/o aa or amonium sulfate	
+Nystatin	Drug	Lipid	DMSO	30 uM
 Paraquat	Chemical	oxidizer	water	1.2 mM
-SC + hepes	Environmental	Media		
+SC	Environmental	Media		
+SC + hepes	Environmental	Media	water 	25 mM
 Sorbitol 1M	Environmental	Environmental	water	1 M
+YPD	Environmental	Media		
 aa starvation	C/N Source	Environmental		
