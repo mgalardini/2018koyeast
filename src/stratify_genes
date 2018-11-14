@@ -20,12 +20,18 @@ if __name__ == "__main__":
     import numpy as np
     import pandas as pd
 
-    m = pd.read_table(scores)
-    m['sick'] = np.zeros(m.shape[0])
-    m.loc[m[(m['score'] < 0) &
-            (m['qvalue'] < 0.05)].index,
-          'sick'] = 1
-    v = m.groupby(['strain', 'gene', 'position']).sum()['sick']
+    m = pd.read_table(scores, index_col=[0, 2, 1])
+    m['phenotype'] = m['qvalue'] < 0.05
+    genes = None
+    for s in {x[0] for x in m.index}:
+        gs = {x[0] for x in m.loc[s].index}
+        if genes is None:
+            genes = gs
+        else:
+            genes = genes.intersection(gs)
+    genes = sorted(genes)
+    m = m.reset_index().set_index('gene').sort_index().loc[genes]
+    v = m.groupby(['strain', 'gene', 'position']).sum()['phenotype']
     # skip the "control" genes
     genes = sorted({y[1] for y in v.index} - {'WT', 'YOR202W'})
     # for each strain pick the maximum number of genes
