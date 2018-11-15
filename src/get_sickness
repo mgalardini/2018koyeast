@@ -1,0 +1,129 @@
+#!/usr/bin/env python
+
+
+def get_options():
+    import argparse
+
+    description = 'Compute gene disruption scores'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('genotype',
+                        help='Genotype matrix')
+    parser.add_argument('af',
+                        help='Frequency matrix')
+    parser.add_argument('impact',
+                        help='Impact table')
+    parser.add_argument('protein',
+                        help='Protein lengths table')
+    parser.add_argument('pangenome',
+                        help='Pangenome matrix (presence/absence)')
+    
+    parser.add_argument('--maf',
+                        default=0.05,
+                        help='MAF filter [Default: 0.05]')
+    parser.add_argument('--only-nonsense',
+                        default=False,
+                        action='store_true',
+                        help='Consider only nonsense mutations')
+    parser.add_argument('--only-homozygous',
+                        default=False,
+                        action='store_true',
+                        help='Consider only homozygous mutations')
+
+    return parser.parse_args()
+
+
+def get_sickness(values, a):
+    if a.get(values.name, 1) < 1:
+        return 0.99
+    v = values['pneutral'].values
+    paf = 1 - np.prod(v[~np.isnan(v)])
+    return paf
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import sys
+    import numpy as np
+    import pandas as pd
+
+    # read each protein's length
+    plen = pd.read_table(options.protein,
+                         index_col=0)['length'].to_dict()
+
+    # read allele frequencies
+    af = pd.read_table(options.af, index_col=0)
+
+    # read genotypes
+    g = pd.read_table(options.genotype,
+                      index_col=0)
+
+    # read mutations impacts
+    i = pd.read_table(options.impact,
+                      index_col=1,
+                      sep='\t',
+                      low_memory=False)
+    # assign AF to each one
+    i['af'] = af['maf'].reindex(i.index)
+    i = i.reset_index().set_index('gene')
+    # filter: exclude synonymous and common variants
+    i = i[(i['type'] != 'synonymous') & (i['af'] <= options.maf)]
+    # add position of variants (useful to asses impact of nonsense/frameshift)
+    i['pos_aa_to_end'] = [v / plen.get(k, np.nan) for k, v in i['pos_aa'].items()]
+    i = i.reset_index().set_index('mut_id')
+    # compute pneutral - for each predictor first
+    i['pneutral_sift'] = 1/(1 + np.exp(-1.312424 * np.log(i['sift_score'] + 1.598027e-05) - 4.103955))
+    i['pneutral_foldx'] = 1/(1 + np.exp(0.21786182 * i['foldx_ddG'] + 0.07351653))
+    i['pneutral_nonsense_frameshift'] = np.nan
+    i.loc[i['type'].isin(['nonsense',
+                          'frameshift']),
+          'pneutral_nonsense_frameshift'] = [0.99 if x > 0.95
+                                             else 0.01
+                                             for x in i[i['type'].isin(['nonsense',
+                                                                        'frameshift'])]['pos_aa_to_end'].values]
+    i.loc[i['pos_aa_to_end'].isnull(),
+          'pneutral_nonsense_frameshift'] = np.nan
+    # compute pneutral: sift has precedence over foldx, nonsense/frameshift after that
+    i['pneutral'] = np.nan
+    if not options.only_nonsense:
+        i.loc[i['type'] == 'nonsynonymous',
+              'pneutral'] = i.loc[i['type'] == 'nonsynonymous',
+                                  ['pneutral_sift', 'pneutral_foldx']].stack().groupby(level=0
+                                  ).first().reindex(i[i['type'] == 'nonsynonymous'].index)
+        # unscored nonsyn get the highest nonsyn pneutral
+        i.loc[(i['type'] == 'nonsynonymous') & (i['pneutral'].isnull()),
+              'pneutral'] = i[['pneutral_sift', 'pneutral_foldx']].max().max()
+    i.loc[i['type'].isin(['nonsense',
+                          'frameshift']),
+          'pneutral'] = i.loc[i['type'].isin(['nonsense',
+                                              'frameshift']),
+                              'pneutral_nonsense_frameshift']
+    # read genes presence/absence
+    a = pd.read_table(options.pangenome, index_col=0).T
+    a.index = ['-'.join(x.split('.')[1:]).split('_')[0]
+               for x in a.index]
+    a = a.loc[a.index.intersection(i['gene'].unique())]
+    a = a.reset_index().groupby('index').max()
+    
+    # only homozygous (N>=2) mutations?
+    if options.only_homozygous:
+        min_count = 1
+    else:
+        min_count = 0
+
+    # compute gene disruption scores
+    p = None
+    for sample in g.columns:
+        x = i.loc[g[sample][g[sample] > min_count].index.intersection(i.index)]
+        t = x.groupby('gene').apply(get_sickness, a=a[sample].to_dict())
+        t.name = sample
+        if p is None:
+            p = t.to_frame()
+        else:
+            p = p.join(t.to_frame(),
+                       how='outer')
+    p[np.isnan(p)] = 0.0
+
+    # output
+    p.to_csv(sys.stdout,
+             sep='\t')
