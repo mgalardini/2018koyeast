@@ -87,7 +87,7 @@ study = pj(out, 'deviating_study.txt')
 population = pj(out, 'deviating_population.txt')
 goe = pj(out, 'deviating_enrichemnt.tsv')
 # stratified results
-strata = ['g%d' % x for x in range(4)]
+strata = ['g%d' % x for x in range(3)]
 sdups = [pj('out', 'duplicates_correlation_%s.tsv' % x)
          for x in strata]
 sorth = [pj('out', 'orthologs_correlation_%s.tsv' % x)

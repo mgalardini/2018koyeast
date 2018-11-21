@@ -43,12 +43,9 @@ if __name__ == "__main__":
     g0 = {x for x in v[v == 0].index}
     g1 = {x for x in v[(v >= 1) &
                        (v <= 2)].index}
-    g2 = {x for x in v[(v >= 3) &
-                       (v <= 5)].index}
-    g3 = {x for x in v[v > 5].index}
+    g2 = {x for x in v[v > 3].index}
 
     print('\t'.join(['class', 'gene']))
     print('\t'.join(['g0', ','.join(g0)]))
     print('\t'.join(['g1', ','.join(g1)]))
     print('\t'.join(['g2', ','.join(g2)]))
-    print('\t'.join(['g3', ','.join(g3)]))
