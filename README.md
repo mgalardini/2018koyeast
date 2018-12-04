@@ -32,10 +32,19 @@ Usage
 Provided that all input files are present the whole pipeline can be run by typing: `snakemake -p all`.
 You can add `--cores XX` to parallelize some steps. Please make sure you have at least 12Gb of RAM available.
 
-The required input files are:
+Copyright
+---------
 
-* 
-*
-*
+Copyright 2018 EMBL-European Bioinformatics Institute
 
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

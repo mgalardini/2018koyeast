@@ -169,6 +169,10 @@ rule minimum_significance:
   output: minsign
   shell: 'src/get_minimum_significance {input} > {output}'
 
+rule download_rawsizes:
+  output: rawsizes
+  shell: 'wget -O {output} "https://www.ebi.ac.uk/~marco/corrected.tsv.gz"'
+
 rule fix_rawsizes:
   input: rawsizes, conditions, todrop, ctodrop
   output: sizes
