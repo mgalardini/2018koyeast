@@ -34,7 +34,7 @@ if __name__ == "__main__":
                                    x.split('-')[1].lower())) +
             ' (' + x.split('-')[0].upper() + ')'
          for x in set(m['condition'])}
-    c = {x: y.replace('  ', ' ')
+    c = {x: y.replace('  ', ' ').replace('48HRS', '48H').replace('72HRS', '72H')
          for x, y in c.items()}
 
     m['condition'] = [c[x] for x in m['condition']]
