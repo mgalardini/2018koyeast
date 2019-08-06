@@ -16,6 +16,7 @@ corr = pj(out, 'correlations')
 
 # data files
 raw = pj(data, 'ko_scores.tsv.gz')
+rev = pj(data, 'rev_scores.tsv.gz')
 rawref = pj(data, 'ko_scores_s288c.tsv.gz')
 rawrep = pj(data, 'ko_scores_rep.tsv.gz')
 rawsizes = pj(data, 'corrected.tsv.gz')
@@ -34,6 +35,7 @@ strains = sorted({x.decode().rstrip().split('\t')[1]
 
 # output files
 scores = pj(out, 'ko_scores.txt')
+scoresrev = pj(out, 'rev_scores.txt')
 scoresref = pj(out, 'ko_scores_s288c.txt')
 scoresrep = pj(out, 'ko_scores_rep.txt')
 ascores = pj(out, 'ko_scores_annotated.txt')
@@ -121,7 +123,7 @@ genrichment = pj(out, 'gwas_enrichments.tsv')
 
 rule all:
   input:
-    scores, scoresref, scoresrep, fitness,
+    scores, scoresref, scoresrep, scoresrev, fitness,
     natural, ascores, wscores, minsign,
     dups, scorrelations, s3correlation, pcorrelations,
     ccorrelations, sorted_conditions,
@@ -143,6 +145,11 @@ rule fix_raw:
   input: raw, conditions, todrop, ctodrop
   output: scores
   shell: 'src/fix_raw {input} > {output}'
+
+rule fix_rev:
+  input: rev, conditions
+  output: scoresrev
+  shell: 'src/fix_rev {input} > {output}'
 
 rule annotate_scores:
   input: scores, sgdsortedbed

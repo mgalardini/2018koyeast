@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+
+
+def get_options():
+    import argparse
+
+    description = 'Fix conditions names'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('scores')
+    parser.add_argument('conditions',
+                        help='Conditions table')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import sys
+    import pandas as pd
+
+    m = pd.read_table(options.scores)
+
+    ctable = pd.read_table(options.conditions, index_col=0)
+    correct = ctable['corrected_condition_tag'].dropna().to_dict()
+    ctable = ctable['condition'].dropna().to_dict()
+    ctable['acet'] = 'Acetic acid'
+    ctable['sc'] = 'Synthetic complete media'
+
+    c = {x: ctable.get(correct.get(x.split('-')[1].lower(),
+                                   x.split('-')[1].lower()),
+                       correct.get(x.split('-')[1].lower(),
+                                   x.split('-')[1].lower())) +
+            ' (' + x.split('-')[0].upper() + ')'
+         for x in set(m['condition'])}
+    c = {x: y.replace('  ', ' ')
+         for x, y in c.items()}
+
+    m['condition'] = [c[x] for x in m['condition']]
+    m.set_index(['strain', 'condition'], inplace=True)
+    m.sort_index(inplace=True)
+    m.reset_index(inplace=True)
+
+    m.to_csv(sys.stdout,
+             sep='\t',
+             index=False)
