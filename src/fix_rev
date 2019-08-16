@@ -18,6 +18,7 @@ if __name__ == "__main__":
     options = get_options()
 
     import sys
+    import numpy as np
     import pandas as pd
 
     m = pd.read_table(options.scores)

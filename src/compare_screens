@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+
+
+import argparse
+import itertools
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+
+def get_options():
+    description = 'Compare screenings'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('old',
+                        help='Old screening')
+    parser.add_argument('new',
+                        help='New screening')
+
+    parser.add_argument('--param',
+                        default='score',
+                        help='Column to compare (default: %(default)s)')
+    parser.add_argument('--correlations',
+                        default=None,
+                        help='Save correlations to file (default: do not save)')
+    parser.add_argument('--intra',
+                        action='store_true',
+                        default=False,
+                        help='Intra screen reproducibility (default: inter)')
+    parser.add_argument('--inter-new',
+                        action='store_true',
+                        default=False,
+                        help='Inter screen reproducibility with new mutants')
+    parser.add_argument('--shuffle-strains',
+                        action='store_true',
+                        default=False,
+                        help='Compare different strains (default: no)')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    if options.correlations is not None:
+        fc = open(options.correlations, 'w')
+    else:
+        fc = None
+
+    m = pd.read_csv(options.old, sep='\t')
+    n = pd.read_csv(options.new, sep='\t')
+
+    m['phenotype'] = m['qvalue'] < 0.05
+    n['phenotype'] = n['qvalue'] < 0.05
+
+    m['signed-qvalue'] = np.sign(m['score']) * -np.log10(m['qvalue'])
+    n['signed-qvalue'] = np.sign(n['score']) * -np.log10(n['qvalue'])
+
+    m = m.set_index(['strain', 'gene', 'condition']).sort_index()
+    n = n.set_index(['strain', 'gene', 'condition']).sort_index()
+
+    t = n[n['subset'] == 'OLD']
+    u = n[n['subset'] == 'NEW']
+
+    if options.intra:
+        genes = {x[1] for x in u.index}.intersection({x[1] for x in t.index}) - {'WT',
+                                                                             'YOR202W'}
+        conditions = {x[2] for x in u.index}.intersection({x[2] for x in t.index})
+    else:
+        if not options.inter_new:
+            genes = {x[1] for x in m.index}.intersection({x[1] for x in t.index}) - {'WT',
+                                                                                'YOR202W'}
+            conditions = {x[2] for x in m.index}.intersection({x[2] for x in t.index})
+        else:
+            genes = {x[1] for x in m.index}.intersection({x[1] for x in u.index}) - {'WT',
+                                                                                'YOR202W'}
+            conditions = {x[2] for x in m.index}.intersection({x[2] for x in u.index})
+
+    if options.intra:
+        mc = u.loc[(slice(None), slice(None), conditions), ]
+    else:
+        mc = m.loc[(slice(None), slice(None), conditions), ]
+    if not options.inter_new:
+        nc = t.loc[(slice(None), slice(None), conditions), ]
+    else:
+        nc = u.loc[(slice(None), slice(None), conditions), ]
+    if not options.shuffle_strains:
+        for strain in ['S288C', 'Y55',
+                    'YPS', 'UWOP']:
+            for gene in list(genes):
+                try:
+                    mdf = mc.loc[(strain, gene),]
+                    ndf = nc.loc[(strain, gene),]
+                except KeyError:
+                    continue
+                mpos = sorted(mdf['position'].unique())
+                npos = sorted(ndf['position'].unique())
+                for pos1, pos2 in itertools.product(mpos, npos):
+                    mscores = mdf[mdf['position'] == pos1][options.param]
+                    nscores = ndf[ndf['position'] == pos2][options.param]
+                    idx = mscores.index.intersection(nscores.index)
+                    if mscores.loc[idx].shape[0] != nscores.loc[idx].shape[0]:
+                        continue
+                    if fc is not None:
+                        rvalue, pvalue = stats.pearsonr(mscores.loc[idx],
+                                                        nscores.loc[idx])
+                        fc.write('%s\t%s\t%f\t%f\n' % (strain, gene,
+                                                    rvalue, pvalue))
+                    for v, w in zip(mscores.loc[idx], nscores.loc[idx]):
+                        print('\t'.join([strain, gene, str(v), str(w)]))
+    else:
+        for strain1, strain2 in itertools.combinations(['S288C', 'Y55',
+                                                        'YPS', 'UWOP'],
+                                                       2):
+            if strain1 == strain2:
+                continue
+            for gene in list(genes):
+                try:
+                    mdf = mc.loc[(strain1, gene),]
+                    ndf = nc.loc[(strain2, gene),]
+                except KeyError:
+                    continue
+                mpos = sorted(mdf['position'].unique())
+                npos = sorted(ndf['position'].unique())
+                for pos1, pos2 in itertools.product(mpos, npos):
+                    mscores = mdf[mdf['position'] == pos1][options.param]
+                    nscores = ndf[ndf['position'] == pos2][options.param]
+                    idx = mscores.index.intersection(nscores.index)
+                    if mscores.loc[idx].shape[0] != nscores.loc[idx].shape[0]:
+                        continue
+                    if fc is not None:
+                        rvalue, pvalue = stats.pearsonr(mscores.loc[idx],
+                                                        nscores.loc[idx])
+                        fc.write('%s\t%s\t%s\t%f\t%f\n' % (strain1,
+                                                           strain2,
+                                                           gene,
+                                                           rvalue, pvalue))
+                    for v, w in zip(mscores.loc[idx], nscores.loc[idx]):
+                        print('\t'.join([strain1, strain2,
+                                         gene, str(v), str(w)]))
+
+    if fc is not None:
+        fc.close()

@@ -51,6 +51,14 @@ dups = pj(out, 'duplicates_correlation.tsv')
 orth = pj(out, 'orthologs_correlation.tsv')
 cond = pj(out, 'orthologs_conditions_correlation.tsv')
 genes = pj(out, 'stratified_genes.tsv')
+# revisions
+revinter = pj(out, 'rev_inter.txt')
+revintercorr = pj(out, 'rev_inter_corr.txt')
+revintra = pj(out, 'rev_intra.txt')
+revintracorr = pj(out, 'rev_intra_corr.txt')
+revintrashuffle = pj(out, 'rev_intra_shuffle.txt')
+revintrashufflecorr = pj(out, 'rev_intra_shuffle_corr.txt')
+revdeviations = pj(out, 'deviating_rev.tsv')
 # conditions correlations
 ccorrelations = pj(out, 'conditions_correlations.tsv')
 # gene-gene correlations
@@ -64,6 +72,10 @@ benchmarks = pj(out, 'benchmarks.tsv')
 s3benchmarks = pj(out, 'benchmarks_s3.tsv')
 # deviating s-scores
 deviations = pj(out, 'deviating.tsv')
+deviations_duplicates = pj(out, 'deviating_duplicates.tsv')
+deviations_strain = pj(out, 'deviating_strain.tsv')
+deviations_strain_rev = pj(out, 'deviating_strain_rev.tsv')
+deviations_rev_mutants = pj(out, 'deviating_rev_mutants.tsv')
 # ko data (Hillenmeyer 2008)
 kolog = pj(ko, 'lscores.tsv')
 koz = pj(ko, 'zscores.tsv')
@@ -124,6 +136,7 @@ genrichment = pj(out, 'gwas_enrichments.tsv')
 rule all:
   input:
     scores, scoresref, scoresrep, scoresrev, fitness,
+    revinter, revintra, revintrashuffle,
     natural, ascores, wscores, minsign,
     dups, scorrelations, s3correlation, pcorrelations,
     ccorrelations, sorted_conditions,
@@ -133,7 +146,10 @@ rule all:
     sdups, sorth, scond,
     kolog, koz, kopval,
     kolog1, koz1, kopval1,
-    features, deviations,
+    features, deviations, deviations_duplicates,
+    deviations_strain,
+    deviations_strain_rev,
+    deviations_rev_mutants,
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
@@ -150,6 +166,30 @@ rule fix_rev:
   input: rev, conditions
   output: scoresrev
   shell: 'src/fix_rev {input} > {output}'
+
+rule compare_screens:
+  input: revinter, revintra, revintrashuffle
+
+rule compare_screens_inter:
+  input: scores, scoresrev
+  output: revinter
+  params: revintercorr
+  shell: 'src/compare_screens {input} --correlations {params} > {output}'
+
+rule compare_screens_intra:
+  input: revintra, revintrashuffle
+
+rule:
+  input: scores, scoresrev
+  output: revintrashuffle
+  params: revintrashufflecorr
+  shell: 'src/compare_screens {input} --correlations {params} --intra --shuffle-strains > {output}'
+
+rule:
+  input: scores, scoresrev
+  output: revintra
+  params: revintracorr
+  shell: 'src/compare_screens {input} --correlations {params} --intra > {output}'
 
 rule annotate_scores:
   input: scores, sgdsortedbed
@@ -372,6 +412,31 @@ rule deviating_scores:
   input: scores, scoresrep
   output: deviations
   shell: 'src/get_deviating_scores {input} > {output}'
+
+rule deviating_scores_duplicates:
+  input: scores, scoresrep
+  output: deviations_duplicates
+  shell: 'src/get_deviating_scores_duplicates {input} > {output}'
+
+rule deviating_scores_strain:
+  input: scores, scoresrep
+  output: deviations_strain
+  shell: 'src/get_deviating_scores_strain {input} > {output}'
+
+rule deviating_scores_strain_rev:
+  input: scores, scoresrev, scoresrep
+  output: deviations_strain_rev
+  shell: 'src/get_deviating_scores_rev {input} > {output}'
+
+rule deviating_scores_rev_mutant:
+  input: scoresrev, scoresrep
+  output: deviations_rev_mutants
+  shell: 'src/get_deviating_scores_rev_mutants {input} > {output}'
+
+rule rev_deviating_scores:
+  input: scoresrev, scoresrep
+  output: revdeviations
+  shell: 'src/get_deviating_scores {input} --revision > {output}'
 
 rule:
   input: scores, deviations 

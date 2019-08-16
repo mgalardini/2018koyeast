@@ -19,10 +19,11 @@ def get_options():
     parser.add_argument('replicates',
                         help='KO replicates file')
 
-    parser.add_argument('--revision',
+    parser.add_argument('--one-position',
                         action='store_true',
                         default=False,
-                        help='KO scores are from the revions')
+                        help='Consider a single position pair '
+                             ' (default: all of them)')
 
     return parser.parse_args()
 
@@ -134,46 +135,78 @@ if __name__ == "__main__":
     bm = pd.read_table(bscores, index_col=[3, 1, 0, 2, 5])
     x, y, z = get_null(bm)
 
-    if not options.revision:
-        m = pd.read_table(scores, index_col=[0, 1, 2])
-    else:
-        m = pd.read_table(scores)
-        m['id'] = ['%s_%s' % (x, y) for x, y in m[['gene', 'subset']].values]
-        m = m.drop(columns = ['gene', 'subset'])
-        m = m.rename(columns = {'id': 'gene'})
-        m = m.set_index(['strain',
-                         'condition',
-                         'gene'])
+    m = pd.read_table(scores)
+    m = m[~m['gene'].isin({'WT', 'YOR202W'})]
+    m = m.set_index(['strain', 'gene', 'condition'])
     m['phenotype'] = m['qvalue'] < 0.05
+    m = m.reset_index()
     b = True
-    for s1, s2 in itertools.combinations(sorted({x[0] for x in m.index}), 2):
-        s = s1 + '/' + s2
-        m1 = m.loc[s1]['score']
+    for strain in sorted(m['strain'].unique()):
+        s1 = strain
+        s2 = strain
+
+        m1 = m[(m['strain'] == s1) & (m['subset'] == 'OLD')]
+        m2 = m[(m['strain'] == s2) & (m['subset'] == 'NEW')]
+        w1 = []
+        w2 = []
+        for gene in set(m1['gene'].unique()).intersection(m2['gene'].unique()):
+            t1 = m1[m1['gene'] == gene]
+            t2 = m2[m2['gene'] == gene]
+            done = set()
+            for i, (p1, p2) in enumerate(
+                    itertools.product(t1['position'].unique(),
+                                      t2['position'].unique())):
+                if p1 == p2 or tuple(sorted([p1, p2])) in done:
+                    continue
+                u1 = t1[t1['position'] == p1].copy()
+                u2 = t2[t2['position'] == p2].copy()
+                u1['position'] = p1 + '__' + p2
+                u2['position'] = p1 + '__' + p2
+                w1.append(u1)
+                w2.append(u2)
+                if options.one_position:
+                    break
+                done.add(tuple(sorted([p1, p2])))
+        w1 = pd.concat(w1)
+        w2 = pd.concat(w2)
+        w1 = w1.set_index(['strain', 'gene',
+                           'condition', 'position'])
+        w2 = w2.set_index(['strain', 'gene',
+                           'condition', 'position'])
+
+        m1 = w1['score']
         m1 = m1[~m1.index.duplicated()].dropna()
-        m2 = m.loc[s2]['score']
+        m2 = w2['score']
         m2 = m2[~m2.index.duplicated()].dropna()
         m1.name = s1
         m2.name = s2
-        p1 = m.loc[s1]['phenotype']
+        p1 = w1['phenotype']
         p1 = p1[~p1.index.duplicated()].dropna()
-        p2 = m.loc[s2]['phenotype']
+        p2 = w2['phenotype']
         p2 = p2[~p2.index.duplicated()].dropna()
         p1.name = 'phenotype1'
         p2.name = 'phenotype2'
-        q1 = m.loc[s1]['qvalue']
+        q1 = w1['qvalue']
         q1 = q1[~q1.index.duplicated()].dropna()
-        q2 = m.loc[s2]['qvalue']
+        q2 = w2['qvalue']
         q2 = q2[~q2.index.duplicated()].dropna()
         q1.name = 'scores-qvalue1'
         q2.name = 'scores-qvalue2'
-        d = m1.to_frame().join(m2.to_frame(), how='inner').dropna()
-        d = d.join(p1.to_frame(),
-                   how='inner').dropna().join(p2.to_frame(),
-                                              how='inner').dropna()
-        d = d.join(q1.to_frame(),
-                   how='inner').dropna().join(q2.to_frame(),
-                                              how='inner').dropna()
-        w = get_deviating_scores(d, s1, s2, x, y, z)
+        d = m1.loc[s1].to_frame().join(m2.loc[s2].to_frame(),
+                                       how='inner',
+                                       lsuffix='_1',
+                                       rsuffix='_2').dropna()
+        d = d.join(p1.loc[s1].to_frame(),
+                   how='inner').dropna().join(p2.loc[s2].to_frame(),
+                                              how='inner',
+                                              lsuffix='_1',
+                                              rsuffix='_2').dropna()
+        d = d.join(q1.loc[s1].to_frame(),
+                   how='inner').dropna().join(q2.loc[s2].to_frame(),
+                                              how='inner',
+                                              lsuffix='_1',
+                                              rsuffix='_2').dropna()
+        w = get_deviating_scores(d, s1 + '_1', s2 + '_2', x, y, z)
         # add a new qvalue columns to get rid of "deviations" that are not relevant
         w['qvalue'] = w['qval'].copy(deep=True)
         w.loc[w[(w['qval'] < 0.01) &
