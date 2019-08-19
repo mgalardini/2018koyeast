@@ -16,7 +16,6 @@ corr = pj(out, 'correlations')
 
 # data files
 raw = pj(data, 'ko_scores.tsv.gz')
-rev = pj(data, 'rev_scores.tsv.gz')
 rawref = pj(data, 'ko_scores_s288c.tsv.gz')
 rawrep = pj(data, 'ko_scores_rep.tsv.gz')
 rawsizes = pj(data, 'corrected.tsv.gz')
@@ -28,6 +27,11 @@ uniprot2gene = pj(data, 'uniprot2orf.tsv')
 essential = pj(data, 'essentials.csv')
 reactome_input = pj(data, 'reactomePathwaysScerevisiae.tsv')
 genome = pj(data, 'reference.fasta')
+# revisions
+rev = pj(data, 'rev_scores.tsv.gz')
+revreads = pj(data, 'reads.txt')
+revdepth = pj(data, 'mosdepth.txt')
+chromosomes = pj(data, 'chromosomes.tsv')
 
 # variables extracted from data file
 strains = sorted({x.decode().rstrip().split('\t')[1]
@@ -59,6 +63,7 @@ revintracorr = pj(out, 'rev_intra_corr.txt')
 revintrashuffle = pj(out, 'rev_intra_shuffle.txt')
 revintrashufflecorr = pj(out, 'rev_intra_shuffle_corr.txt')
 revdeviations = pj(out, 'deviating_rev.tsv')
+revseqqc = pj(out, 'rev_seq_qc.tsv')
 # conditions correlations
 ccorrelations = pj(out, 'conditions_correlations.tsv')
 # gene-gene correlations
@@ -130,7 +135,9 @@ associations = pj(out, 'associations.tsv')
 aassociations = pj(out, 'associations_annotated.tsv')
 wassociations = pj(out, 'associations_window.tsv')
 sgdbed = pj(out, 'SGD_features.bed')
+sgdbedncbi = pj(out, 'NCBI_features.bed')
 sgdsortedbed = pj(out, 'SGD_sorted_features.bed')
+sgdsortedbedncbi = pj(out, 'NCBI_sorted_features.bed')
 genrichment = pj(out, 'gwas_enrichments.tsv')
 
 rule all:
@@ -150,11 +157,13 @@ rule all:
     deviations_strain,
     deviations_strain_rev,
     deviations_rev_mutants,
+    revseqqc,
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
     go_sets, reactome,
     mash, gene_sets_tests,
+    sgdsortedbedncbi,
     aassociations, wassociations, genrichment
 
 rule fix_raw:
@@ -448,6 +457,11 @@ rule deviating_genes_go_enrichment:
   output: goe
   shell: 'find_enrichment.py --obo {input} --method fdr_bh | grep "^GO" > {output}'
 
+rule rev_seq_qc:
+  input: revreads, revdepth
+  output: revseqqc
+  shell: 'src/sequencing_qc {input} --target-depth 8 > {output}'
+
 rule mash_sketches:
   input: assemblies
   output: mash_sketches
@@ -534,9 +548,21 @@ rule sgd2bed:
   output: sgdbed
   shell: 'src/sgd2bed {input} > {output}'
 
+rule sgd2bedncbi:
+  input: 
+    f=features,
+    c=chromosomes
+  output: sgdbedncbi
+  shell: 'src/sgd2bed {input.f} --ncbi {input.c} > {output}'
+
 rule sort_bed:
   input: sgdbed
   output: sgdsortedbed
+  shell: 'bedtools sort -i {input} > {output}'
+
+rule sort_bed_ncbi:
+  input: sgdbedncbi
+  output: sgdsortedbedncbi
   shell: 'bedtools sort -i {input} > {output}'
 
 rule gwas_enrichment:

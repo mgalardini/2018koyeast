@@ -1,0 +1,50 @@
+#!/usr/bin/env python
+
+
+import sys
+import argparse
+import numpy as np
+import pandas as pd
+
+
+def get_options():
+    description = 'Compute some QC metrics'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('reads',
+                        help='Number of reads per sample')
+    parser.add_argument('depth',
+                        help='Depth of sequencing cumulative distribution '
+                             'per sample')
+
+    parser.add_argument('--target-depth',
+                        type=int,
+                        default=10,
+                        help='Target depth of sequencing (default: %(default)d)')
+
+    return parser.parse_args()
+
+
+def get_depth(data, target=10):
+    v = data.sort_values('coverage')
+    i = np.interp(target,
+                  v['coverage'],
+                  v['proportion'])
+    return i
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    m = pd.read_csv(options.reads, sep=' ', header=None)
+    m.columns = ['sample', 'reads']
+    m['reads'] = m['reads'] / 1000000
+
+    n = pd.read_csv(options.depth, sep='\t', header=None)
+    n.columns = ['sample', 'coverage', 'proportion']
+
+    d = n.groupby('sample').apply(get_depth, target=options.target_depth)
+    d.name = 'depth'
+
+    v = m.set_index('sample').join(d.to_frame(), how='inner')
+    v.to_csv(sys.stdout, sep='\t')

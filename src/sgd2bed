@@ -9,11 +9,21 @@ def get_options():
     parser.add_argument('sgd',
                         help='SGD features table')
 
+    parser.add_argument('--ncbi',
+                        default=None,
+                        help='NCBI chromosome ID to SGD')
+
     return parser.parse_args()
 
 if __name__ == "__main__":
     options = get_options()
-    
+
+    ncbi = {}
+    if options.ncbi is not None:
+        for l in open(options.ncbi):
+            ncbi_id, _, chromosome = l.rstrip().split()
+            ncbi[chromosome] = ncbi_id
+
     for l in open(options.sgd):
         s = l.rstrip().split('\t')
         if len(s) < 11:
@@ -30,7 +40,11 @@ if __name__ == "__main__":
             int(chrom)
         except ValueError:
             continue
-        print('%d\t%d\t%d\t%s' % (int(chrom),
+        if options.ncbi:
+            chrom = ncbi.get(chrom, None)
+            if chrom is None:
+                continue
+        print('%s\t%d\t%d\t%s' % (str(chrom),
                                   int(start),
                                   int(stop),
                                   name))
