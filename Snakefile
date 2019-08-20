@@ -13,6 +13,9 @@ mutfunc = pj(data, 'mutfunc')
 out = config.get('out', 'out')
 ko = pj(out, 'hillenmeyer2008')
 corr = pj(out, 'correlations')
+# revisions
+mosdepth = pj(data, 'mosdepth')
+coverage = pj(out, 'coverage')
 
 # data files
 raw = pj(data, 'ko_scores.tsv.gz')
@@ -32,6 +35,7 @@ rev = pj(data, 'rev_scores.tsv.gz')
 revreads = pj(data, 'reads.txt')
 revdepth = pj(data, 'mosdepth.txt')
 chromosomes = pj(data, 'chromosomes.tsv')
+revsequencing = pj(data, 'rev_sequencing.tsv')
 
 # variables extracted from data file
 strains = sorted({x.decode().rstrip().split('\t')[1]
@@ -64,6 +68,8 @@ revintrashuffle = pj(out, 'rev_intra_shuffle.txt')
 revintrashufflecorr = pj(out, 'rev_intra_shuffle_corr.txt')
 revdeviations = pj(out, 'deviating_rev.tsv')
 revseqqc = pj(out, 'rev_seq_qc.tsv')
+revkos = pj(out, 'rev_sequencing_kos.tsv')
+revcoverage = pj(coverage, 'done')
 # conditions correlations
 ccorrelations = pj(out, 'conditions_correlations.tsv')
 # gene-gene correlations
@@ -157,7 +163,8 @@ rule all:
     deviations_strain,
     deviations_strain_rev,
     deviations_rev_mutants,
-    revseqqc,
+    revseqqc, revkos,
+    revcoverage,
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
@@ -461,6 +468,16 @@ rule rev_seq_qc:
   input: revreads, revdepth
   output: revseqqc
   shell: 'src/sequencing_qc {input} --target-depth 8 > {output}'
+
+rule rev_kos:
+  input: features, revseqqc, revsequencing, sgdsortedbedncbi, mosdepth
+  output: revkos
+  shell: 'src/sequencing_kos {input} --length 1000 --min-depth 0.7 > {output}'
+
+rule plot_coverage:
+  input: revsequencing, sgdsortedbedncbi, features, mosdepth, coverage
+  output: revcoverage
+  shell: 'src/plot_coverage {input} && touch {output}' 
 
 rule mash_sketches:
   input: assemblies
