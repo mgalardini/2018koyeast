@@ -15,6 +15,7 @@ ko = pj(out, 'hillenmeyer2008')
 corr = pj(out, 'correlations')
 # revisions
 mosdepth = pj(data, 'mosdepth')
+coverage = pj(out, 'coverage')
 
 # data files
 raw = pj(data, 'ko_scores.tsv.gz')
@@ -68,6 +69,7 @@ revintrashufflecorr = pj(out, 'rev_intra_shuffle_corr.txt')
 revdeviations = pj(out, 'deviating_rev.tsv')
 revseqqc = pj(out, 'rev_seq_qc.tsv')
 revkos = pj(out, 'rev_sequencing_kos.tsv')
+revcoverage = pj(coverage, 'done')
 # conditions correlations
 ccorrelations = pj(out, 'conditions_correlations.tsv')
 # gene-gene correlations
@@ -162,6 +164,7 @@ rule all:
     deviations_strain_rev,
     deviations_rev_mutants,
     revseqqc, revkos,
+    revcoverage,
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
@@ -470,6 +473,11 @@ rule rev_kos:
   input: features, revseqqc, revsequencing, sgdsortedbedncbi, mosdepth
   output: revkos
   shell: 'src/sequencing_kos {input} --length 1000 --min-depth 0.7 > {output}'
+
+rule plot_coverage:
+  input: revsequencing, sgdsortedbedncbi, features, mosdepth, coverage
+  output: revcoverage
+  shell: 'src/plot_coverage {input} && touch {output}' 
 
 rule mash_sketches:
   input: assemblies
