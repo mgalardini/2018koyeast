@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+
+
+import sys
+import pandas as pd
+
+
+def get_options():
+    import argparse
+
+    description = 'Get the minimum phenotypes significance for each gene pair'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('scores',
+                        help='KO scores file')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    scores = options.scores
+    m = pd.read_table(scores, index_col=[0, 2, 1])
+    genes = None
+    for s in {x[0] for x in m.index}:
+        gs = {x[0] for x in m.loc[s].index}
+        if genes is None:
+            genes = gs
+        else:
+            genes = genes.intersection(gs)
+    genes = sorted(genes)
+    m = m.loc[(slice(None), genes),].reset_index()
+    p = m.groupby(['strain', 'gene'])['qvalue'].min()
+    p.name = 'min-qvalue'
+    p = p.reset_index()
+    p.to_csv(sys.stdout, sep='\t', index=False)
