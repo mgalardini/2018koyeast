@@ -1,0 +1,120 @@
+#!/usr/bin/env python
+
+
+import os
+import argparse
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+sns.set_style('white')
+
+def get_options():
+    description = 'Plot coverage'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('seq',
+                        help='Sequencing file')
+    parser.add_argument('ncbi',
+                        help='NCBI bed file')
+    parser.add_argument('sgd',
+                        help='SGD features file')
+    parser.add_argument('mosdepth',
+                        help='mosdepth directory')
+    parser.add_argument('out',
+                        help='output directory')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    d = {'S288C': 'S288C',
+         'Y55': 'Y55',
+         'UWOPS87': 'UWOP',
+         'YPS606': 'YPS'}
+
+    strains = ['S288C', 'Y55',
+               'UWOP', 'YPS']
+    cstrains = {x: c
+                for x, c in zip(strains, sns.color_palette('Set1', len(strains)))}
+
+    m = pd.read_csv(options.seq, sep='\t')
+
+    b = pd.read_csv(options.ncbi, sep='\t', header=None)
+    b.columns = ['chr', 'start', 'stop', 'gene']
+
+    g = pd.read_csv(options.sgd, sep='\t', header=None)
+    gn = g[g[1] == 'ORF'].set_index(3)[4].dropna().to_dict()
+    rgn = g[g[1] == 'ORF'].set_index(4)[3].dropna().to_dict()
+
+    b['name'] = [gn.get(x, x) for x in b['gene']]
+
+    for gene in m['gene'].unique():
+        print(gene)
+        plt.figure(figsize=(6, 2))
+        
+        chrom, start, stop, _, _ = b[b['name'] == gene].values[0]
+        for i, (mutant, label) in enumerate(zip(['original', 'new'],
+                                                ['Original mutants (%s)' % gene,
+                                                 'New mutants (%s)' % gene])):
+            plt.subplot(1, 2, i + 1)
+
+            for strain in ['S288C', 'Y55', 'YPS606', 'UWOPS87']:
+                print('%s %s' % (gene, strain))
+                try:
+                    s = m[(m['gene'] == gene) &
+                          (m['strain'] == strain) &
+                          (m['set'] == mutant)].values[0, -1]
+                
+                    p = pd.read_csv(os.path.join(options.mosdepth,
+                                                 s, '%s.per-base.bed.gz' % s),
+                                                 sep='\t', header=None)
+
+                    p.columns = ['chr', 'start', 'stop', 'depth']
+
+                    t = p[(p['chr'] == chrom) &
+                          (p['start'] > start - 5000) &
+                          (p['stop'] < stop + 5000)]
+
+                    bases = range(t['start'].min(),
+                                  t['stop'].max())
+
+                    plt.plot([x for x in bases],
+                             [t[(t['start'] <= x) &
+                                (t['stop'] >= x)]['depth'].values[0]
+                              for x in bases],
+                             '-',
+                             color=cstrains[d[strain]],
+                             rasterized=True,
+                             label=d[strain])
+                except Exception as e:
+                    print(str(e))
+                    continue
+
+            plt.fill_between([start, stop],
+                             [-1, -1],
+                             [60, 60],
+                             color='grey',
+                             alpha=0.3)
+
+            if i == 0:
+                plt.legend(loc='best')
+            plt.xlabel('Position (bp)')
+            plt.ylabel('Reads depth')
+
+            plt.ylim(-1, 60)
+
+            plt.gca().xaxis.set_major_locator(plt.MaxNLocator(3))
+            
+            plt.title(label)
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(options.out, 'coverage_%s.png' % gene),
+                    dpi=300, bbox_inches='tight',
+                    transparent=True)
+        plt.savefig(os.path.join(options.out, 'coverage_%s.svg' % gene),
+                    dpi=300, bbox_inches='tight',
+                    transparent=True)
+        plt.clf()
