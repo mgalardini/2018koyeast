@@ -18,6 +18,11 @@ def get_options():
                         action='store_true',
                         default=False,
                         help='Focus on genetic interactions only')
+    parser.add_argument('--pubmed-filter',
+                        type=int,
+                        default=None,
+                        help='Only include interactions from pubmed IDs with at least '
+                             'this many interactions (default: not applied)')
     
     return parser.parse_args()
 
@@ -35,8 +40,12 @@ if __name__ == "__main__":
     cpx = {}
     m = pd.read_table(sys.stdin, sep='\t')
     m = m[(m['Organism Interactor A'] == options.organism) &
-          (m['Organism Interactor B'] == options.organism)]
-    
+          (m['Organism Interactor B'] == options.organism)].copy()
+    if options.pubmed_filter is not None:
+        c = m.groupby('Pubmed ID')['#BioGRID Interaction ID'].count().sort_values()
+        pmids = c[c >= options.pubmed_filter].index
+        m = m[m['Pubmed ID'].isin(pmids)].copy()
+
     if not options.genetic:
         for g1, g2 in {tuple(sorted((x, y)))
                        for x,y in m[['Systematic Name Interactor A',
