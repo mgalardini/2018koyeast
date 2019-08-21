@@ -1,0 +1,32 @@
+#!/usr/bin/env python
+
+
+import argparse
+import pandas as pd
+
+
+def get_options():
+    description = 'Select variable genes'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('bed',
+                        help='Bed file')
+
+    parser.add_argument('--variability',
+                        type=int,
+                        default=10,
+                        help='Number of variants per gene - threshold '
+                             '(default: %(default)d)')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    m = pd.read_csv(options.bed, sep='\t', header=None)
+    m.columns = ['chr', 'start', 'stop', 'gene']
+    c = m.groupby('gene')['chr'].count()
+
+    for g in c[c > options.variability].index:
+        print(g)
