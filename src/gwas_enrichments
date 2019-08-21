@@ -23,6 +23,10 @@ def get_options():
     parser.add_argument('features',
                         help='Sorted SGD bed file')
 
+    parser.add_argument('--genes',
+                        default=None,
+                        help='File with genes to consider (default: consider all)')
+
     return parser.parse_args()
 
 
@@ -57,6 +61,7 @@ def test_enrichment(m, s, agenes, cond,
         kgenes = set(ns[ns >= nstrains].index)
     else:
         kgenes = set(s[s['qvalue'] < kpval].loc[cond]['gene'].unique())
+    kgenes = kgenes.intersection(agenes)
     table = [[len(kgenes.intersection(genes)),
               len(genes.difference(kgenes))],
              [len(kgenes.difference(genes)),
@@ -179,6 +184,9 @@ if __name__ == "__main__":
             'strain', 'chrom']).sort_index()
 
     agenes = agenes.intersection(f['gene'].unique())
+    if options.genes is not None:
+        cgenes = {x.rstrip() for x in open(options.genes)}
+        agenes = agenes.intersection(cgenes)
 
     conds = sorted({x[0] for x in m.index}.intersection({x[0] for x in s.index}))
 

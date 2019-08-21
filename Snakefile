@@ -70,6 +70,9 @@ revdeviations = pj(out, 'deviating_rev.tsv')
 revseqqc = pj(out, 'rev_seq_qc.tsv')
 revkos = pj(out, 'rev_sequencing_kos.tsv')
 revcoverage = pj(coverage, 'done')
+revbed = pj(out, 'rev.bed')
+revgenes = pj(out, 'variable_genes.txt')
+revenrich = pj(out, 'gwas_enrichment.rev.tsv')
 # conditions correlations
 ccorrelations = pj(out, 'conditions_correlations.tsv')
 # gene-gene correlations
@@ -171,7 +174,8 @@ rule all:
     go_sets, reactome,
     mash, gene_sets_tests,
     sgdsortedbedncbi,
-    aassociations, wassociations, genrichment
+    aassociations, wassociations, genrichment,
+    revenrich
 
 rule fix_raw:
   input: raw, conditions, todrop, ctodrop
@@ -577,6 +581,18 @@ rule sort_bed:
   output: sgdsortedbed
   shell: 'bedtools sort -i {input} > {output}'
 
+rule:
+  input:
+    a=avcf,
+    b=sgdsortedbed
+  output: revbed
+  shell: 'bedtools intersect -a {input.b} -b {input.a} > {output}'
+
+rule:
+  input: revbed
+  output: revgenes
+  shell: 'src/get_variable_genes {input} > {output}'
+
 rule sort_bed_ncbi:
   input: sgdbedncbi
   output: sgdsortedbedncbi
@@ -587,3 +603,9 @@ rule gwas_enrichment:
   output: genrichment
   shell:
     'src/gwas_enrichments {input} > {output}'
+
+rule rev_gwas_enrichment:
+  input: a=aassociations, g=genome, s=ascores, b=sgdsortedbed, g=revgenes
+  output: revenrich
+  shell:
+    'src/gwas_enrichments {input.a} {input.g} {input.s} {input.b} --genes {input.g} > {output}'
