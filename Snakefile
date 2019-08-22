@@ -73,6 +73,7 @@ revcoverage = pj(coverage, 'done')
 revbed = pj(out, 'rev.bed')
 revgenes = pj(out, 'variable_genes.txt')
 revenrich = pj(out, 'gwas_enrichment.rev.tsv')
+revdisorder = pj(out, 'disorder.txt')
 # conditions correlations
 ccorrelations = pj(out, 'conditions_correlations.tsv')
 # gene-gene correlations
@@ -168,6 +169,7 @@ rule all:
     deviations_rev_mutants,
     revseqqc, revkos,
     revcoverage,
+    revdisorder,
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
@@ -176,6 +178,11 @@ rule all:
     sgdsortedbedncbi,
     aassociations, wassociations, genrichment,
     revenrich
+
+rule disorder:
+  input: uniprot2gene
+  output: revdisorder
+  shell: 'src/get_disorder {input} > {output}'
 
 rule fix_raw:
   input: raw, conditions, todrop, ctodrop

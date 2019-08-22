@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+
+
+import requests
+import argparse
+
+
+def get_options():
+    description = 'Get disorder proportions for each gene'
+    parser = argparse.ArgumentParser(description=description)
+
+    parser.add_argument('uniprot2gene',
+                        help='Uniprot to gene conversion file')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    options = get_options()
+
+    b = True
+    for l in open(options.uniprot2gene):
+        if b:
+            b = False
+            continue
+        uniprot, gene = l.rstrip().split()
+
+        u = requests.get('http://mobidb.bio.unipd.it/ws/%s/uniprot' % uniprot)
+        d = requests.get('http://mobidb.bio.unipd.it/ws/%s/consensus' % uniprot)
+
+        length = u.json()['length']
+        dis = sum([len(range(x[0], x[1]))
+                   for x in d.json()['mobidb_consensus']['disorder']['predictors'][0]['regions']
+                   if x[2] == 'D'])
+        print('\t'.join([gene, str(dis), str(dis / length)]))
