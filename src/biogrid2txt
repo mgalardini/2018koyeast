@@ -23,7 +23,12 @@ def get_options():
                         default=None,
                         help='Only include interactions from pubmed IDs with at least '
                              'this many interactions (default: not applied)')
-    
+    parser.add_argument('--pubmed-id',
+                        action='append',
+                        default=None,
+                        help='Only include interactions from these pubmed IDs'
+                             ' (default: all studies)')
+
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -45,6 +50,8 @@ if __name__ == "__main__":
         c = m.groupby('Pubmed ID')['#BioGRID Interaction ID'].count().sort_values()
         pmids = c[c >= options.pubmed_filter].index
         m = m[m['Pubmed ID'].isin(pmids)].copy()
+    if options.pubmed_id is not None:
+        m = m[m['Pubmed ID'].isin(set(options.pubmed_id))].copy()
 
     if not options.genetic:
         for g1, g2 in {tuple(sorted((x, y)))

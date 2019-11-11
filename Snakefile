@@ -109,6 +109,9 @@ string = pj(out, 'string.combined.800.txt')
 biogrid = pj(out, 'biogrid.all.txt')
 biogrid_physical = pj(out, 'biogrid.physical.txt')
 biogrid_genetic = pj(out, 'biogrid.genetic.txt')
+biogrid_rev = pj(out, 'biogrid.all.rev.txt')
+biogrid_physical_rev = pj(out, 'biogrid.physical.rev.txt')
+biogrid_genetic_rev = pj(out, 'biogrid.genetic.rev.txt')
 go_sets = pj(out, 'go.txt')
 reactome = pj(out, 'reactome.txt')
 # go terms enrichemnt
@@ -173,6 +176,7 @@ rule all:
     gaf, obo, goe,
     cpx, kegg, string,
     biogrid, biogrid_physical, biogrid_genetic,
+    biogrid_rev, biogrid_physical_rev, biogrid_genetic_rev,
     go_sets, reactome,
     mash, gene_sets_tests,
     sgdsortedbedncbi,
@@ -414,6 +418,16 @@ rule:
   shell: 'wget --quiet --output-document - https://downloads.thebiogrid.org/Download/BioGRID/Latest-Release/BIOGRID-MV-Physical-LATEST.tab2.zip | gunzip | src/biogrid2txt > {output}'
 
 rule:
+  output:
+    biogrid=biogrid_rev,
+    biogrid_genetic=biogrid_genetic_rev
+  shell: 'wget -O tmp.zip https://downloads.thebiogrid.org/Download/BioGRID/Release-Archive/BIOGRID-3.4.159/BIOGRID-ORGANISM-3.4.159.tab2.zip && unzip -j tmp.zip BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.159.tab2.txt -d . && cat BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.159.tab2.txt | src/biogrid2txt --pubmed-id 27708008 --pubmed-id 20093466 > {output.biogrid} && cat BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.159.tab2.txt | src/biogrid2txt --pubmed-id 27708008 --pubmed-id 20093466 --genetic > {output.biogrid_genetic} && rm tmp.zip && rm BIOGRID-ORGANISM-Saccharomyces_cerevisiae_S288c-3.4.159.tab2.txt'
+
+rule:
+  output: biogrid_physical_rev
+  shell: 'wget --quiet --output-document - https://downloads.thebiogrid.org/Download/BioGRID/Latest-Release/BIOGRID-MV-Physical-LATEST.tab2.zip | gunzip | src/biogrid2txt --pubmed-id 18719252 > {output}'
+
+rule:
   input: gaf
   output: go_sets
   shell: 'cat {input} | src/gaf2txt > {output}'
@@ -612,7 +626,7 @@ rule gwas_enrichment:
     'src/gwas_enrichments {input} > {output}'
 
 rule rev_gwas_enrichment:
-  input: a=aassociations, g=genome, s=ascores, b=sgdsortedbed, g=revgenes
+  input: a=aassociations, g=genome, s=ascores, b=sgdsortedbed, g1=revgenes
   output: revenrich
   shell:
-    'src/gwas_enrichments {input.a} {input.g} {input.s} {input.b} --genes {input.g} > {output}'
+    'src/gwas_enrichments {input.a} {input.g} {input.s} {input.b} --genes {input.g1} > {output}'
