@@ -3,6 +3,12 @@
 
 Analysis on chemical genomics data across 4 yeast strains.
 
+Note
+----
+
+The s-scores for the 1000 yeast collection is missing from the [paper's](https://www.embopress.org/doi/full/10.15252/msb.20198831)
+supplementary materials: find it [here](https://github.com/mgalardini/2018koyeast/raw/master/out/yeasts_scores.txt.gz) (`out/yeast_scores.txt.gz`).
+
 Introduction
 ------------
 
@@ -31,6 +37,11 @@ Usage
 
 Provided that all input files are present the whole pipeline can be run by typing: `snakemake -p all`.
 You can add `--cores XX` to parallelize some steps. Please make sure you have at least 12Gb of RAM available.
+
+Citation
+--------
+
+[Galardini, Marco, Bede P. Busby, Cristina Vieitez, Alistair S. Dunham, Athanasios Typas, and Pedro Beltrao. "The impact of the genetic background on gene deletion phenotypes in Saccharomyces cerevisiae." Molecular Systems Biology 15, no. 12 (2019).](https://www.embopress.org/doi/full/10.15252/msb.20198831)
 
 Copyright
 ---------
