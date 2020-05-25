@@ -21,7 +21,8 @@ coverage = pj(out, 'coverage')
 raw = pj(data, 'ko_scores.tsv.gz')
 rawref = pj(data, 'ko_scores_s288c.tsv.gz')
 rawrep = pj(data, 'ko_scores_rep.tsv.gz')
-rawsizes = pj(data, 'corrected.tsv.gz')
+rawsizes_precorrection = pj(data, 'sizes', 'sizes.txt.gz')
+rawsizes = pj(data, 'sizes', 'corrected.tsv.gz')
 todrop = pj(data, 'S288C_to_drop.txt')
 ctodrop = pj(data, 'conditions_to_drop.txt')
 conditions = pj(data, 'conditions.tsv')
@@ -247,9 +248,10 @@ rule minimum_significance:
   output: minsign
   shell: 'src/get_minimum_significance {input} > {output}'
 
-rule download_rawsizes:
+rule correct_rawsizes:
+  input: rawsizes_precorrection
   output: rawsizes
-  shell: 'wget -O {output} "https://www.ebi.ac.uk/~marco/corrected.tsv.gz"'
+  shell: 'python3 src/correct_raw_sizes.py {input} data/sizes/emap_info | gzip > {output}'
 
 rule fix_rawsizes:
   input: rawsizes, conditions, todrop, ctodrop
