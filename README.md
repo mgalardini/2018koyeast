@@ -8,7 +8,7 @@ Note
 
 The s-scores for the 1000 yeast collection is missing from the [paper's](https://www.embopress.org/doi/full/10.15252/msb.20198831)
 supplementary materials: find it [here](https://github.com/mgalardini/2018koyeast/raw/master/out/yeasts_scores.txt.gz) (`out/yeast_scores.txt.gz`). Raw and normalized colony sizes
-can also be found in theis repository ([here](https://github.com/mgalardini/2018koyeast/raw/master/out/yeasts_natural_colony_sizes.tsv.gz)).
+can also be found in theis repository ([here](https://github.com/mgalardini/2018koyeast/raw/master/out/yeasts_natural_colony_sizes.tsv.gz) `out/yeasts_natural_colony_sizes.tsv.gz`).
 
 Also, for convenience, the corrected colony sizes are available through [FigShare](https://figshare.com/articles/Yeast_4_strains_chemical_genomics_-_raw_colony_sizes/12367265).
 
